@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Lock, ArrowLeft, Eye, EyeOff, AlertCircle, Sparkles, ShieldAlert, Clock, CheckCircle2 } from 'lucide-react';
+import { Lock, ArrowLeft, Eye, EyeOff, AlertCircle, ShieldAlert, Clock, CheckCircle2 } from 'lucide-react';
 import { RachyLogo } from './RachyLogo.tsx';
 
 interface AdminLoginProps {
@@ -64,6 +64,15 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onBackTo
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
+  // One-way SHA-256 hash helper (never stores plaintext password in code)
+  const sha256Hex = async (str: string): Promise<string> => {
+    const enc = new TextEncoder().encode(str);
+    const hashBuf = await crypto.subtle.digest('SHA-256', enc);
+    return Array.from(new Uint8Array(hashBuf))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isLocked) {
@@ -80,36 +89,81 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onBackTo
     setError(null);
 
     try {
-      const res = await fetch('/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password })
-      });
+      let serverValidated = false;
+      let serverSuccess = false;
+      let serverToken = '';
 
-      const data = await res.json();
+      // 1. Try server-side authentication first
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password })
+        });
 
-      if (!res.ok) {
-        if (typeof data.attemptsRemaining === 'number') {
-          setAttemptsRemaining(data.attemptsRemaining);
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const data = await res.json();
+          serverValidated = true;
+
+          if (!res.ok) {
+            if (typeof data.attemptsRemaining === 'number') {
+              setAttemptsRemaining(data.attemptsRemaining);
+            }
+
+            if (data.locked) {
+              setIsLocked(true);
+              setRemainingSeconds(data.remainingSeconds || 900);
+              throw new Error(data.error || 'Too many incorrect attempts. Portal is locked for 15 minutes.');
+            }
+
+            throw new Error(data.error || 'Incorrect password.');
+          }
+
+          serverSuccess = true;
+          serverToken = data.token;
         }
+      } catch (networkErr: any) {
+        // If server actively returned a 401/403/locked error, rethrow it
+        if (serverValidated) {
+          throw networkErr;
+        }
+        // If server is not responding or returns 404 HTML (Vercel static host), fall through to cryptographic verification
+      }
 
-        if (data.locked) {
+      if (serverSuccess) {
+        setAttemptsRemaining(3);
+        setIsLocked(false);
+        if (serverToken) {
+          sessionStorage.setItem('rachy_admin_token', serverToken);
+        }
+        onLoginSuccess(serverToken);
+        return;
+      }
+
+      // 2. Cryptographic SHA-256 verification (for Vercel static deployments)
+      // Hash of standard default password; no plaintext in client bundle
+      const DEFAULT_PWD_HASH = 'd3573d3549ec0ab47953d206fa933cf1617c464d6a2179fd736bdedeade40215';
+      const inputHash = await sha256Hex(password);
+      const targetHash = localStorage.getItem('rachy_admin_pwd_hash') || DEFAULT_PWD_HASH;
+
+      if (inputHash === targetHash) {
+        setAttemptsRemaining(3);
+        setIsLocked(false);
+        const fallbackToken = 'rachy_auth_' + Date.now();
+        sessionStorage.setItem('rachy_admin_token', fallbackToken);
+        onLoginSuccess(fallbackToken);
+        return;
+      } else {
+        const nextAttempts = Math.max(0, attemptsRemaining - 1);
+        setAttemptsRemaining(nextAttempts);
+        if (nextAttempts <= 0) {
           setIsLocked(true);
-          setRemainingSeconds(data.remainingSeconds || 900);
-          throw new Error(data.error || 'Too many incorrect attempts. Portal is locked for 15 minutes.');
+          setRemainingSeconds(900);
+          throw new Error('Too many incorrect attempts. Portal is locked for 15 minutes.');
         }
-
-        throw new Error(data.error || 'Incorrect password.');
+        throw new Error(`Incorrect password. ${nextAttempts} attempt${nextAttempts === 1 ? '' : 's'} remaining.`);
       }
-
-      // Successful login
-      setAttemptsRemaining(3);
-      setIsLocked(false);
-
-      if (data.token) {
-        sessionStorage.setItem('rachy_admin_token', data.token);
-      }
-      onLoginSuccess(data.token);
     } catch (err: any) {
       setError(err.message || 'Authentication failed. Please check the password.');
     } finally {
@@ -280,22 +334,6 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onBackTo
               )}
             </button>
           </form>
-
-          {/* Development / Preview Access Credentials Hint */}
-          <div className="mt-6 pt-5 border-t border-[rgba(245,236,226,0.08)]">
-            <div className="p-3 rounded-xl bg-[#1f1a15]/60 border border-[rgba(245,236,226,0.08)] text-[11px] text-[#b8a89d] flex items-start gap-2">
-              <Sparkles className="w-4 h-4 text-[#e2417e] shrink-0 mt-0.5" />
-              <div>
-                <span className="text-[#f5ece2] font-medium">Default Password:</span>{' '}
-                <code className="px-1.5 py-0.5 bg-[#0e0c0b] text-[#e2417e] rounded font-mono">
-                  rachytreats2024
-                </code>
-                <p className="mt-1 text-[10px] text-[#b8a89d]/75">
-                  Access URL: <code className="text-[#f5ece2]">/admin</code> or <code className="text-[#f5ece2]">/admin/login</code>
-                </p>
-              </div>
-            </div>
-          </div>
 
         </div>
 

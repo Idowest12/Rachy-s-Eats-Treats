@@ -1,5 +1,18 @@
-import React, { useState, useRef } from 'react';
-import { Upload, Image as ImageIcon, X, RefreshCw, Link as LinkIcon, Check, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  Upload,
+  Image as ImageIcon,
+  X,
+  RefreshCw,
+  Link as LinkIcon,
+  Check,
+  AlertCircle,
+  Cloud,
+  HardDrive,
+  ExternalLink,
+  ShieldCheck
+} from 'lucide-react';
+import { StorageStatus } from '../types.ts';
 
 interface ImageUploadFieldProps {
   value: string;
@@ -20,6 +33,19 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [urlDraft, setUrlDraft] = useState('');
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [storageStatus, setStorageStatus] = useState<StorageStatus | null>(null);
+
+  useEffect(() => {
+    // Fetch storage provider info from server
+    fetch('/api/storage/status')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: StorageStatus | null) => {
+        if (data) setStorageStatus(data);
+      })
+      .catch(() => {
+        // Silently keep default
+      });
+  }, []);
 
   const processFile = async (file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -48,7 +74,7 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({
         reader.readAsDataURL(file);
       });
 
-      // 2. Upload to server
+      // 2. Upload to server (proxies to Cloudinary if configured, otherwise disk)
       const res = await fetch('/api/upload', {
         method: 'POST',
         headers: {
@@ -130,6 +156,11 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({
     }
   };
 
+  // Determine current image storage type
+  const isCloudinary = value.includes('cloudinary.com') || value.includes('res.cloudinary');
+  const isLocalStorage = value.startsWith('/uploads/');
+  const isDataUrl = value.startsWith('data:image/');
+
   return (
     <div className="space-y-3">
       {/* Hidden File Input */}
@@ -140,6 +171,38 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({
         accept="image/png, image/jpeg, image/webp, image/gif"
         className="hidden"
       />
+
+      {/* Storage Backend Banner */}
+      <div className="flex items-center justify-between text-[11px] p-2 rounded-xl bg-[#1f1a15] border border-[rgba(245,236,226,0.08)]">
+        <div className="flex items-center gap-2">
+          {storageStatus?.cloudinaryConfigured ? (
+            <>
+              <span className="flex items-center justify-center w-5 h-5 rounded-full bg-sky-500/20 text-sky-400">
+                <Cloud className="w-3 h-3" />
+              </span>
+              <span className="text-[#f5ece2]">
+                <strong className="text-sky-400 font-medium">Cloudinary CDN Active:</strong> Uploaded images stored securely in the cloud.
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="flex items-center justify-center w-5 h-5 rounded-full bg-amber-500/20 text-amber-300">
+                <HardDrive className="w-3 h-3" />
+              </span>
+              <span className="text-[#b8a89d]">
+                <strong className="text-amber-300 font-medium">Server Storage:</strong> Saved to local disk (<code className="text-white text-[10px]">/uploads</code>). Cloudinary supported in <code className="text-white text-[10px]">.env</code>.
+              </span>
+            </>
+          )}
+        </div>
+
+        {storageStatus?.cloudinaryConfigured && (
+          <span className="hidden sm:inline-flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+            <ShieldCheck className="w-3 h-3" />
+            Cloud Protected
+          </span>
+        )}
+      </div>
 
       {/* When a picture is loaded */}
       {value ? (
@@ -164,12 +227,36 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({
             </div>
 
             <div className="flex-1 min-w-0 space-y-2">
-              <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
-                <Check className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate">Photo attached &amp; active</span>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
+                  <Check className="w-3.5 h-3.5 shrink-0" />
+                  <span>Photo attached</span>
+                </div>
+
+                {/* Storage Location Badge */}
+                {isCloudinary && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-500/15 text-sky-400 border border-sky-500/30">
+                    <Cloud className="w-2.5 h-2.5" />
+                    Cloudinary CDN
+                  </span>
+                )}
+                {isLocalStorage && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                    <HardDrive className="w-2.5 h-2.5" />
+                    Server Disk
+                  </span>
+                )}
+                {isDataUrl && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-500/15 text-purple-300 border border-purple-500/30">
+                    Embedded
+                  </span>
+                )}
               </div>
+
               <p className="text-[11px] text-[#b8a89d] line-clamp-2">
-                This image will appear on the public package catalogue and in WhatsApp ordering cards.
+                {isCloudinary
+                  ? 'Hosted on Cloudinary CDN for instant loading and safe cloud storage.'
+                  : 'Image is linked and will be displayed across catalogue cards and WhatsApp order links.'}
               </p>
 
               {/* Action Buttons */}
@@ -181,7 +268,7 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({
                   className="px-3 py-1.5 rounded-lg bg-[#e2417e] hover:bg-[#c92e6c] text-white text-xs font-semibold shadow-sm transition-all cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5"
                 >
                   <Upload className="w-3.5 h-3.5" />
-                  <span>{uploading ? 'Processing...' : 'Change / Replace Photo'}</span>
+                  <span>{uploading ? 'Processing...' : 'Change Photo'}</span>
                 </button>
 
                 <button
@@ -223,8 +310,10 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({
           <p className="text-xs text-[#b8a89d] mt-1">
             or drag and drop your photo from your phone or computer
           </p>
-          <p className="text-[10px] text-[#b8a89d]/60 mt-1.5">
-            PNG, JPG, WEBP (camera photos supported)
+          <p className="text-[10px] text-[#b8a89d]/60 mt-1.5 flex items-center gap-1.5">
+            <span>PNG, JPG, WEBP</span>
+            <span>•</span>
+            <span>{storageStatus?.cloudinaryConfigured ? 'Direct Cloudinary Upload' : 'Auto-stored on server'}</span>
           </p>
         </div>
       )}
@@ -263,7 +352,7 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({
             <div className="flex gap-2">
               <input
                 type="url"
-                placeholder="https://images.unsplash.com/..."
+                placeholder="https://images.unsplash.com/... or https://res.cloudinary.com/..."
                 value={urlDraft}
                 onChange={(e) => setUrlDraft(e.target.value)}
                 className="flex-1 px-3 py-2 rounded-lg bg-[#0e0c0b] border border-[rgba(245,236,226,0.15)] text-xs text-[#f5ece2] focus:outline-none focus:border-[#e2417e]"

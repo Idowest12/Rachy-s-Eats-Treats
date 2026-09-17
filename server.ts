@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 import cookieParser from 'cookie-parser';
+import { v2 as cloudinary } from 'cloudinary';
 import { createServer as createViteServer } from 'vite';
 import { STARTER_PACKAGES } from './src/data/starterPackages.ts';
 import { Package, SiteSettings } from './src/types.ts';
@@ -12,6 +13,31 @@ const PORT = 3000;
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'rachytreats2024';
 const SESSION_SECRET = process.env.SESSION_SECRET || 'rachy_eats_and_treats_lagos_secret_2024';
+
+// Cloudinary lazy initialization
+function isCloudinaryConfigured(): boolean {
+  if (process.env.CLOUDINARY_URL) return true;
+  return Boolean(
+    process.env.CLOUDINARY_CLOUD_NAME &&
+    process.env.CLOUDINARY_API_KEY &&
+    process.env.CLOUDINARY_API_SECRET
+  );
+}
+
+function getCloudinary() {
+  if (!isCloudinaryConfigured()) return null;
+  if (process.env.CLOUDINARY_URL) {
+    cloudinary.config();
+  } else {
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+      secure: true
+    });
+  }
+  return cloudinary;
+}
 
 // Persistence paths
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -545,14 +571,54 @@ app.post('/api/settings', requireAdmin, (req, res) => {
   }
 });
 
-// Photo Upload endpoint (Admin only)
-app.post('/api/upload', requireAdmin, (req, res) => {
+// Storage status check
+app.get('/api/storage/status', (req, res) => {
+  const configured = isCloudinaryConfigured();
+  return res.json({
+    provider: configured ? 'cloudinary' : 'local',
+    cloudinaryConfigured: configured,
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME || (process.env.CLOUDINARY_URL ? 'Connected via URL' : null),
+    message: configured
+      ? 'Cloudinary CDN active: Uploaded photos are stored in Cloudinary for permanent hosting and lightning-fast global CDN delivery.'
+      : 'Local disk storage active: Photos are stored on server disk. Add Cloudinary credentials (CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET) to .env to store all package images permanently on Cloudinary.'
+  });
+});
+
+// Photo Upload endpoint (Admin only - Cloudinary with local fallback)
+app.post('/api/upload', requireAdmin, async (req, res) => {
   try {
     const { image, filename } = req.body;
     if (!image || typeof image !== 'string') {
       return res.status(400).json({ error: 'No image data provided' });
     }
 
+    // 1. Try Cloudinary if configured
+    const cld = getCloudinary();
+    if (cld) {
+      try {
+        const uploadResult = await cld.uploader.upload(image, {
+          folder: 'rachys_eats_and_treats',
+          resource_type: 'image',
+          transformation: [
+            { quality: 'auto', fetch_format: 'auto' }
+          ]
+        });
+
+        return res.status(201).json({
+          success: true,
+          url: uploadResult.secure_url,
+          storage: 'cloudinary',
+          public_id: uploadResult.public_id,
+          format: uploadResult.format,
+          bytes: uploadResult.bytes,
+          message: 'Stored securely on Cloudinary'
+        });
+      } catch (cldErr: any) {
+        console.error('Cloudinary upload warning (falling back to disk):', cldErr.message || cldErr);
+      }
+    }
+
+    // 2. Fallback to server local disk storage
     let buffer: Buffer;
     let ext = 'jpg';
 
@@ -578,6 +644,8 @@ app.post('/api/upload', requireAdmin, (req, res) => {
     return res.status(201).json({
       success: true,
       url: publicUrl,
+      storage: 'local',
+      cloudinaryConfigured: false,
       filename: cleanFileName,
       size: buffer.length
     });

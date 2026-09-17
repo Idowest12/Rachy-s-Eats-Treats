@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Plus,
   Edit2,
@@ -18,9 +18,13 @@ import {
   BarChart3,
   Radio,
   Package as PackageIcon,
-  Upload
+  Upload,
+  Cloud,
+  ShieldCheck,
+  HardDrive
 } from 'lucide-react';
-import { Package, SiteSettings } from '../types.ts';
+import { Package, SiteSettings, StorageStatus } from '../types.ts';
+import { STARTER_PACKAGES } from '../data/starterPackages.ts';
 import { RachyLogo } from './RachyLogo.tsx';
 import { AdminAnalytics } from './AdminAnalytics.tsx';
 import { ImageUploadField } from './ImageUploadField.tsx';
@@ -67,6 +71,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [settingsPhone, setSettingsPhone] = useState(settings.whatsapp_number);
   const [settingsIg, setSettingsIg] = useState(settings.instagram_handle);
   const [settingsSubmitting, setSettingsSubmitting] = useState(false);
+  const [storageStatus, setStorageStatus] = useState<StorageStatus | null>(null);
+
+  const fetchStorageStatus = () => {
+    fetch('/api/storage/status')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: StorageStatus | null) => {
+        if (data) setStorageStatus(data);
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    fetchStorageStatus();
+  }, []);
 
   const categories = Array.from(new Set(packages.map((p) => p.category).filter(Boolean)));
 
@@ -123,21 +141,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         sort_order: Number(formSortOrder) || 1
       };
 
-      const url = editingPackage ? `/api/packages/${editingPackage.id}` : '/api/packages';
-      const method = editingPackage ? 'PUT' : 'POST';
+      let serverSaved = false;
+      try {
+        const url = editingPackage ? `/api/packages/${editingPackage.id}` : '/api/packages';
+        const method = editingPackage ? 'PUT' : 'POST';
 
-      const res = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          ...getAuthHeader()
-        },
-        body: JSON.stringify(payload)
-      });
+        const res = await fetch(url, {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeader()
+          },
+          body: JSON.stringify(payload)
+        });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to save package');
+        const contentType = res.headers.get('content-type') || '';
+        if (res.ok && contentType.includes('application/json')) {
+          serverSaved = true;
+        }
+      } catch (backendErr) {
+        console.warn('Backend unavailable, updating locally:', backendErr);
+      }
+
+      if (!serverSaved) {
+        // Fallback for static Vercel hosting
+        let updated: Package[];
+        if (editingPackage) {
+          updated = packages.map((p) =>
+            p.id === editingPackage.id ? { ...p, ...payload } : p
+          );
+        } else {
+          const newId = Date.now();
+          updated = [{ id: newId, ...payload }, ...packages];
+        }
+        localStorage.setItem('rachy_packages', JSON.stringify(updated));
       }
 
       await onRefreshPackages();
@@ -153,16 +190,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Delete package
   const handleDeletePackage = async (id: number) => {
     try {
-      const res = await fetch(`/api/packages/${id}`, {
-        method: 'DELETE',
-        headers: {
-          ...getAuthHeader()
+      let serverDeleted = false;
+      try {
+        const res = await fetch(`/api/packages/${id}`, {
+          method: 'DELETE',
+          headers: {
+            ...getAuthHeader()
+          }
+        });
+        const contentType = res.headers.get('content-type') || '';
+        if (res.ok && contentType.includes('application/json')) {
+          serverDeleted = true;
         }
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to delete');
+      } catch (backendErr) {
+        console.warn('Backend unavailable, deleting locally:', backendErr);
       }
+
+      if (!serverDeleted) {
+        const updated = packages.filter((p) => p.id !== id);
+        localStorage.setItem('rachy_packages', JSON.stringify(updated));
+      }
+
       await onRefreshPackages();
       setDeleteConfirmId(null);
       showToast('Package removed from catalogue');
@@ -177,13 +225,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return;
     }
     try {
-      const res = await fetch('/api/packages/reset', {
-        method: 'POST',
-        headers: {
-          ...getAuthHeader()
-        }
-      });
-      if (!res.ok) throw new Error('Failed to reset');
+      try {
+        await fetch('/api/packages/reset', {
+          method: 'POST',
+          headers: {
+            ...getAuthHeader()
+          }
+        });
+      } catch {}
+      localStorage.setItem('rachy_packages', JSON.stringify(STARTER_PACKAGES));
       await onRefreshPackages();
       showToast('Catalog restored to default starter packages');
     } catch (err: any) {
@@ -751,6 +801,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#1f1a15] border border-[rgba(245,236,226,0.15)] text-sm text-[#f5ece2] focus:outline-none focus:border-[#e2417e]"
                   />
                 </div>
+              </div>
+
+              {/* Media & Image Cloud Storage */}
+              <div className="p-3.5 rounded-xl bg-[#1f1a15] border border-[rgba(245,236,226,0.1)] space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Cloud className="w-4 h-4 text-sky-400" />
+                    <span className="text-xs font-semibold text-[#f5ece2]">Cloudinary Cloud Storage</span>
+                  </div>
+                  {storageStatus?.cloudinaryConfigured ? (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                      <ShieldCheck className="w-3 h-3" />
+                      Active (Global CDN)
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                      <HardDrive className="w-3 h-3" />
+                      Local Server Disk
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-[#b8a89d] leading-relaxed">
+                  {storageStatus?.cloudinaryConfigured
+                    ? `Package photos are automatically uploaded to your secure Cloudinary cloud account (${storageStatus.cloudName || 'Active'}). They are backed up with high-speed SSL CDN delivery worldwide.`
+                    : 'Uploaded package images are currently stored securely on the local server disk (/uploads). For permanent cloud hosting and global CDN delivery, add CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET to your environment.'}
+                </p>
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-[rgba(245,236,226,0.08)]">

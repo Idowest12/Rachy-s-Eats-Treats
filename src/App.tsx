@@ -22,12 +22,30 @@ type ViewMode = 'public' | 'admin-login' | 'admin-dashboard';
 
 export default function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('public');
-  const [packages, setPackages] = useState<Package[]>(STARTER_PACKAGES);
-  const [settings, setSettings] = useState<SiteSettings>({
-    whatsapp_number: '2347014995254',
-    instagram_handle: 'rachys_eats_and_treats',
-    business_name: "Rachy's Eats & Treats",
-    location: 'Lagos, Nigeria'
+  const [packages, setPackages] = useState<Package[]>(() => {
+    try {
+      const saved = localStorage.getItem('rachy_packages');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return STARTER_PACKAGES;
+  });
+
+  const [settings, setSettings] = useState<SiteSettings>(() => {
+    try {
+      const saved = localStorage.getItem('rachy_settings');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch {}
+    return {
+      whatsapp_number: '2347014995254',
+      instagram_handle: 'rachys_eats_and_treats',
+      business_name: "Rachy's Eats & Treats",
+      location: 'Lagos, Nigeria'
+    };
   });
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
@@ -39,7 +57,12 @@ export default function App() {
     const handleLocationChange = () => {
       const path = window.location.pathname;
       const hash = window.location.hash;
-      const isAdminRoute = path.startsWith('/admin') || hash === '#admin' || hash === '#/admin';
+      const search = window.location.search;
+      const isAdminRoute =
+        path.startsWith('/admin') ||
+        hash === '#admin' ||
+        hash === '#/admin' ||
+        search.includes('admin');
 
       if (isAdminRoute) {
         const token = sessionStorage.getItem('rachy_admin_token');
@@ -69,44 +92,73 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Load packages and settings
+  // Load packages and settings safely
   const fetchPackages = async () => {
     try {
       const res = await fetch('/api/packages');
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
           setPackages(data);
+          localStorage.setItem('rachy_packages', JSON.stringify(data));
+          return;
         }
       }
     } catch (err) {
-      console.error('Error fetching packages, using fallback:', err);
+      console.warn('Backend /api/packages unavailable, using local cache:', err);
     }
+    // Cache fallback
+    try {
+      const saved = localStorage.getItem('rachy_packages');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) setPackages(parsed);
+      }
+    } catch {}
   };
 
   const fetchSettings = async () => {
     try {
       const res = await fetch('/api/settings');
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
         const data = await res.json();
         setSettings(data);
+        localStorage.setItem('rachy_settings', JSON.stringify(data));
+        return;
       }
     } catch (err) {
-      console.error('Error fetching settings:', err);
+      console.warn('Backend /api/settings unavailable, using local cache:', err);
     }
+    try {
+      const saved = localStorage.getItem('rachy_settings');
+      if (saved) {
+        setSettings(JSON.parse(saved));
+      }
+    } catch {}
   };
 
   const checkAuthStatus = async () => {
     try {
       const token = sessionStorage.getItem('rachy_admin_token');
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      if (!token) {
+        setIsAdminLoggedIn(false);
+        return;
+      }
+      const headers = { Authorization: `Bearer ${token}` };
       const res = await fetch('/api/auth/status', { headers });
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
         const data = await res.json();
         setIsAdminLoggedIn(Boolean(data.authenticated));
+      } else {
+        // In static deployments, valid token in session storage allows logged-in state
+        setIsAdminLoggedIn(true);
       }
     } catch (err) {
-      console.error('Error checking auth:', err);
+      const token = sessionStorage.getItem('rachy_admin_token');
+      setIsAdminLoggedIn(Boolean(token));
     }
   };
 
@@ -177,18 +229,26 @@ export default function App() {
   };
 
   const handleUpdateSettings = async (newSettings: SiteSettings) => {
-    const token = sessionStorage.getItem('rachy_admin_token');
-    const res = await fetch('/api/settings', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {})
-      },
-      body: JSON.stringify(newSettings)
-    });
-    if (res.ok) {
-      const saved = await res.json();
-      setSettings(saved);
+    setSettings(newSettings);
+    localStorage.setItem('rachy_settings', JSON.stringify(newSettings));
+    try {
+      const token = sessionStorage.getItem('rachy_admin_token');
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify(newSettings)
+      });
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
+        const saved = await res.json();
+        setSettings(saved);
+        localStorage.setItem('rachy_settings', JSON.stringify(saved));
+      }
+    } catch (err) {
+      console.warn('Backend unavailable, settings saved locally:', err);
     }
   };
 

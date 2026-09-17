@@ -72,3 +72,10 @@ export interface AnalyticsSummary {
   recentOutreach: OutreachEvent[];
 }
 
+export interface StorageStatus {
+  provider: 'cloudinary' | 'local';
+  cloudinaryConfigured: boolean;
+  cloudName?: string | null;
+  message: string;
+}
+
