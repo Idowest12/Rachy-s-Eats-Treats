@@ -1,0 +1,6 @@
+{
+  "name": "Rachy's Eats & Treats",
+  "description": "Curated gift sets, luxury money boxes, surprise packages, and gourmet food trays delivered across Lagos with an admin package management dashboard.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,124 @@
+import { Package } from '../types.ts';
+
+export const STARTER_PACKAGES: Package[] = [
+  {
+    id: 1,
+    category: 'Birthday Sets',
+    title: 'Luxury Velvet Birthday Box',
+    price: '₦45,000',
+    image_url: 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?q=80&w=800&auto=format&fit=crop',
+    description: 'Custom acrylic bubble balloon, fresh red roses, personalized sash, gourmet chocolate truffles, and celebration sparkler.',
+    sort_order: 1,
+    created_at: new Date('2024-01-10T10:00:00Z').toISOString()
+  },
+  {
+    id: 2,
+    category: 'Birthday Sets',
+    title: 'Midnight Sparkle Balloon & Cake Set',
+    price: '₦55,000',
+    image_url: 'https://images.unsplash.com/photo-1513151233558-d860c5398176?q=80&w=800&auto=format&fit=crop',
+    description: '4-inch bento celebration cake, chrome balloon bunch, sparkling cider, and gourmet chocolate-dipped strawberries.',
+    sort_order: 2,
+    created_at: new Date('2024-01-11T10:00:00Z').toISOString()
+  },
+  {
+    id: 3,
+    category: 'Birthday Sets',
+    title: 'Sweet Celebration Mini Box',
+    price: '₦25,000',
+    image_url: 'https://images.unsplash.com/photo-1513885535751-8b9238bd345a?q=80&w=800&auto=format&fit=crop',
+    description: 'Curated mini treat box featuring imported Belgian chocolates, personalized handwritten card, and mini helium balloon.',
+    sort_order: 3,
+    created_at: new Date('2024-01-12T10:00:00Z').toISOString()
+  },
+  {
+    id: 4,
+    category: 'Money Box Surprises',
+    title: '3-Tier Pull-Out Money Tower',
+    price: '₦35,000',
+    image_url: 'https://images.unsplash.com/photo-1530103862676-de8c9debad1d?q=80&w=800&auto=format&fit=crop',
+    description: 'Showstopping interactive pull-out money roll with clear cash sleeves, topped with fresh roses, chocolates, and custom greeting banner.',
+    sort_order: 1,
+    created_at: new Date('2024-01-13T10:00:00Z').toISOString()
+  },
+  {
+    id: 5,
+    category: 'Money Box Surprises',
+    title: 'Velvet Exploding Surprise Box',
+    price: '₦30,000',
+    image_url: 'https://images.unsplash.com/photo-1512909006721-3d6018887383?q=80&w=800&auto=format&fit=crop',
+    description: 'Quad-fold velvet keepsake box that bursts open with client photos, cash holders, sweet treats, and flutter butterfly inserts.',
+    sort_order: 2,
+    created_at: new Date('2024-01-14T10:00:00Z').toISOString()
+  },
+  {
+    id: 6,
+    category: 'Money Box Surprises',
+    title: 'Royal Crown Cash & Treat Hamper',
+    price: 'Priced on request',
+    image_url: 'https://images.unsplash.com/photo-1576402187878-974f70c890a5?q=80&w=800&auto=format&fit=crop',
+    description: 'Opulent presentation basket integrating bespoke currency displays, non-alcoholic champagne, gold-rimmed tumbler, and pastries.',
+    sort_order: 3,
+    created_at: new Date('2024-01-15T10:00:00Z').toISOString()
+  },
+  {
+    id: 7,
+    category: 'Food Trays',
+    title: 'The Lagos Executive Breakfast Tray',
+    price: '₦38,000',
+    image_url: 'https://images.unsplash.com/photo-1533089860892-a7c6f0a88666?q=80&w=800&auto=format&fit=crop',
+    description: 'Golden Belgian waffles, seasoned scrambled eggs, chicken sausages, buttery croissants, fresh fruit cup, yogurt parfait, and freshly squeezed orange juice.',
+    sort_order: 1,
+    created_at: new Date('2024-01-16T10:00:00Z').toISOString()
+  },
+  {
+    id: 8,
+    category: 'Food Trays',
+    title: 'Royal Brunch Feast & Mocktail Tray',
+    price: '₦50,000',
+    image_url: 'https://images.unsplash.com/photo-1550547660-d9450f859349?q=80&w=800&auto=format&fit=crop',
+    description: 'Fluffy buttermilk pancakes, maple syrup, grilled peppered wings, mini club sandwiches, fruit skewers, donuts, and chilled Chapman mocktail.',
+    sort_order: 2,
+    created_at: new Date('2024-01-17T10:00:00Z').toISOString()
+  },
+  {
+    id: 9,
+    category: 'Food Trays',
+    title: 'Jollof & Grills Celebration Platter',
+    price: '₦42,000',
+    image_url: 'https://images.unsplash.com/photo-1544025162-d76694265947?q=80&w=800&auto=format&fit=crop',
+    description: 'Smokey party Jollof rice, peppered turkey drumsticks, sweet fried dodo, spicy beef kebabs, coleslaw, and chilled hibiscus zobo drink.',
+    sort_order: 3,
+    created_at: new Date('2024-01-18T10:00:00Z').toISOString()
+  },
+  {
+    id: 10,
+    category: 'Hampers & Gift Boxes',
+    title: "Gentleman's Premium Treat Box",
+    price: '₦48,000',
+    image_url: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?q=80&w=800&auto=format&fit=crop',
+    description: 'Matte black keepsake chest with sparkling red grape drink, luxury body fragrance, cozy dress socks, leather wallet, and roasted cashew nuts.',
+    sort_order: 1,
+    created_at: new Date('2024-01-19T10:00:00Z').toISOString()
+  },
+  {
+    id: 11,
+    category: 'Hampers & Gift Boxes',
+    title: 'Pamper & Glow Sweet Hamper',
+    price: '₦40,000',
+    image_url: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?q=80&w=800&auto=format&fit=crop',
+    description: 'Organic rose water mist, scented soy wax candle, silky eye mask, Ferrero Rocher box, and personalized engraved hot/cold tumbler.',
+    sort_order: 2,
+    created_at: new Date('2024-01-20T10:00:00Z').toISOString()
+  },
+  {
+    id: 12,
+    category: 'Hampers & Gift Boxes',
+    title: 'Grand Intention Luxury Hamper',
+    price: '₦75,000',
+    image_url: 'https://images.unsplash.com/photo-1607344645866-009c320c5ab8?q=80&w=800&auto=format&fit=crop',
+    description: 'Our signature festive hamper packed with imported Danish butter cookies, sparkling wine, custom tumbler, artisan snacks, honey jar, and decorative floral bunch.',
+    sort_order: 3,
+    created_at: new Date('2024-01-21T10:00:00Z').toISOString()
+  }
+];

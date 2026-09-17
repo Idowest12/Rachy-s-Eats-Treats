@@ -1,0 +1,26 @@
+{
+  "visits": [
+    {
+      "id": "v_1789630898855_24e487",
+      "timestamp": "2026-09-17T07:41:38.856Z",
+      "location": "Lagos, Nigeria",
+      "country": "Nigeria",
+      "city": "Lagos",
+      "device": "desktop",
+      "browser": "Browser",
+      "page": "/"
+    }
+  ],
+  "outreach": [
+    {
+      "id": "out_1789630900627_2b1e34",
+      "timestamp": "2026-09-17T07:41:40.627Z",
+      "channel": "whatsapp",
+      "package_title": "Luxury Velvet Birthday Box",
+      "location": "Lagos, Nigeria",
+      "country": "Nigeria",
+      "city": "Lagos",
+      "device": "desktop"
+    }
+  ]
+}

@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+:root {
+  --background: #0e0c0b;
+  --surface: #17140f;
+  --surface-2: #1f1a15;
+  --pink: #e2417e;
+  --pink-hover: #c92e6c;
+  --cream: #f5ece2;
+  --muted: #b8a89d;
+  --line: rgba(245, 236, 226, 0.12);
+}
+
+html {
+  scroll-behavior: smooth;
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--cream);
+  font-family: 'Work Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+.font-serif, .font-display {
+  font-family: 'Fraunces', Georgia, serif;
+}
+
+.font-sans, .font-body {
+  font-family: 'Work Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Subtle scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0e0c0b;
+}
+::-webkit-scrollbar-thumb {
+  background: #1f1a15;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #e2417e;
+}
+
+/* Glow effects */
+.hero-glow {
+  background: radial-gradient(circle at 50% 30%, rgba(226, 65, 126, 0.18) 0%, rgba(14, 12, 11, 0) 70%);
+}
+
+.card-glow:hover {
+  box-shadow: 0 10px 30px -10px rgba(226, 65, 126, 0.15);
+}
+
+/* Hide scrollbars for pill navigation */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
