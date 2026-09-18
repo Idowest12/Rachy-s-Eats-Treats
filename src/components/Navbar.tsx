@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { MessageCircle, Instagram, Sparkles, Lock, Menu, X, Phone } from 'lucide-react';
+import React, { useEffect, useState, useRef } from 'react';
+import { MessageCircle, Instagram, Sparkles, Lock, Menu, X, Phone, ChevronDown, Check } from 'lucide-react';
 import { SiteSettings } from '../types.ts';
 import { RachyLogo } from './RachyLogo.tsx';
 import { trackOutreach } from '../utils/analytics.ts';
@@ -9,16 +9,47 @@ interface NavbarProps {
   onOpenBooking: () => void;
   onOpenAdmin: () => void;
   isAdminLoggedIn: boolean;
+  activeCategory?: string;
+  onSelectCategory?: (category: string) => void;
+  categories?: string[];
 }
+
+const DEFAULT_CATEGORIES = [
+  { id: 'all', label: 'All Packages', icon: '✨' },
+  { id: 'Surprises', label: 'Surprises', icon: '🎁' },
+  { id: 'Food tray', label: 'Food tray', icon: '🥞' },
+  { id: 'Money box', label: 'Money box', icon: '💸' },
+  { id: 'Hampers', label: 'Hampers', icon: '🧺' },
+];
 
 export const Navbar: React.FC<NavbarProps> = ({
   settings,
   onOpenBooking,
   onOpenAdmin,
-  isAdminLoggedIn
+  isAdminLoggedIn,
+  activeCategory = 'all',
+  onSelectCategory,
+  categories
 }) => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [packagesDropdownOpen, setPackagesDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const categoryItems = React.useMemo(() => {
+    if (!categories || categories.length === 0) return DEFAULT_CATEGORIES;
+    const items = [{ id: 'all', label: 'All Packages', icon: '✨' }];
+    categories.forEach((cat) => {
+      const lower = cat.toLowerCase();
+      const icon =
+        lower.includes('surprise') ? '🎁' :
+        lower.includes('food') || lower.includes('tray') ? '🥞' :
+        lower.includes('money') ? '💸' :
+        lower.includes('hamper') ? '🧺' : '🎀';
+      items.push({ id: cat, label: cat, icon });
+    });
+    return items;
+  }, [categories]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -27,6 +58,28 @@ export const Navbar: React.FC<NavbarProps> = ({
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setPackagesDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleCategoryClick = (categoryKey: string) => {
+    setPackagesDropdownOpen(false);
+    setMobileMenuOpen(false);
+    if (onSelectCategory) {
+      onSelectCategory(categoryKey);
+    }
+    const el = document.getElementById('packages-section') || document.getElementById('catalogue');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
 
   const cleanPhone = (settings?.whatsapp_number || '2347014995254').replace(/[^0-9]/g, '');
   const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(
@@ -77,7 +130,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </a>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-6 lg:gap-7 text-xs font-semibold text-gray-700">
+          <nav className="hidden md:flex items-center gap-5 lg:gap-7 text-xs font-semibold text-gray-700">
             <a
               href="#hero"
               className="text-[var(--pink)] hover:text-[var(--pink-hover)] transition-colors"
@@ -102,12 +155,65 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               Services
             </a>
-            <a
-              href="#packages-section"
-              className="hover:text-[var(--pink)] transition-colors"
-            >
-              Gift Items
-            </a>
+
+            {/* Packages with Category Filter Dropdown in Navbar */}
+            <div className="relative" ref={dropdownRef}>
+              <button
+                type="button"
+                onClick={() => setPackagesDropdownOpen(!packagesDropdownOpen)}
+                className={`inline-flex items-center gap-1.5 py-1 transition-colors cursor-pointer ${
+                  activeCategory && activeCategory !== 'all'
+                    ? 'text-[var(--pink)] font-bold'
+                    : 'hover:text-[var(--pink)]'
+                }`}
+              >
+                <span>Packages</span>
+                {activeCategory && activeCategory !== 'all' && (
+                  <span className="px-1.5 py-0.5 rounded-full bg-pink-100 text-[10px] text-[var(--pink)] font-bold capitalize">
+                    {activeCategory}
+                  </span>
+                )}
+                <ChevronDown
+                  className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                    packagesDropdownOpen ? 'rotate-180 text-[var(--pink)]' : 'text-gray-400'
+                  }`}
+                />
+              </button>
+
+              {/* Dropdown Menu */}
+              {packagesDropdownOpen && (
+                <div className="absolute top-full left-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 z-50 animate-in fade-in slide-in-from-top-1">
+                  <div className="px-3.5 py-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                    Filter Packages
+                  </div>
+                  {categoryItems.map((cat) => {
+                    const isCatActive =
+                      (cat.id === 'all' && (activeCategory === 'all' || !activeCategory)) ||
+                      (cat.id !== 'all' && activeCategory?.toLowerCase() === cat.id.toLowerCase());
+
+                    return (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => handleCategoryClick(cat.id)}
+                        className={`w-full px-3.5 py-2 text-left text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
+                          isCatActive
+                            ? 'bg-pink-50 text-[var(--pink)] font-bold'
+                            : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <span>{cat.icon}</span>
+                          <span>{cat.label}</span>
+                        </span>
+                        {isCatActive && <Check className="w-3.5 h-3.5 text-[var(--pink)] shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
             <a
               href="#contact-section"
               className="hover:text-[var(--pink)] transition-colors"
@@ -175,35 +281,69 @@ export const Navbar: React.FC<NavbarProps> = ({
             <a
               href="#services-section"
               onClick={() => setMobileMenuOpen(false)}
-              className="block text-sm font-semibold text-gray-800 py-1.5"
+              className="block text-sm font-semibold text-gray-800 py-1"
             >
               Services
             </a>
-            <a
-              href="#packages-section"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block text-sm font-semibold text-gray-800 py-1.5"
-            >
-              Catalogue
-            </a>
+
+            {/* In-Navbar Category Filter in Mobile Drawer */}
+            <div className="py-2.5 my-1 border-y border-gray-100">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10.5px] font-bold uppercase tracking-wider text-gray-400">
+                  Filter Packages
+                </span>
+                {activeCategory && activeCategory !== 'all' && (
+                  <button
+                    onClick={() => handleCategoryClick('all')}
+                    className="text-[11px] font-semibold text-[var(--pink)] hover:underline"
+                  >
+                    Reset Filter
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                {categoryItems.map((cat) => {
+                  const isCatActive =
+                    (cat.id === 'all' && (activeCategory === 'all' || !activeCategory)) ||
+                    (cat.id !== 'all' && activeCategory?.toLowerCase() === cat.id.toLowerCase());
+
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => handleCategoryClick(cat.id)}
+                      className={`px-3 py-2 rounded-xl text-xs font-semibold text-left flex items-center justify-between transition-colors active:scale-95 ${
+                        isCatActive
+                          ? 'bg-[var(--pink)] text-white font-bold shadow-xs'
+                          : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      <span className="truncate">{cat.icon} {cat.label}</span>
+                      {isCatActive && <Check className="w-3.5 h-3.5 text-white shrink-0 ml-1" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             <a
               href="#reels-section"
               onClick={() => setMobileMenuOpen(false)}
-              className="block text-sm font-semibold text-gray-800 py-1.5"
+              className="block text-sm font-semibold text-gray-800 py-1"
             >
               See Us In Action (Reels)
             </a>
             <a
               href="#about-section"
               onClick={() => setMobileMenuOpen(false)}
-              className="block text-sm font-semibold text-gray-800 py-1.5"
+              className="block text-sm font-semibold text-gray-800 py-1"
             >
               About Us
             </a>
             <a
               href="#contact-section"
               onClick={() => setMobileMenuOpen(false)}
-              className="block text-sm font-semibold text-gray-800 py-1.5"
+              className="block text-sm font-semibold text-gray-800 py-1"
             >
               Contact
             </a>

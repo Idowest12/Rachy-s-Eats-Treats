@@ -21,12 +21,16 @@ import {
   Instagram,
   User,
   Calendar,
-  Sparkles
+  Sparkles,
+  Layers,
+  Image as ImageIcon,
+  Link as LinkIcon
 } from 'lucide-react';
-import { Package, SiteSettings, StorageStatus, BookingOrder, ReelItem } from '../types.ts';
+import { Package, SiteSettings, StorageStatus, BookingOrder, ReelItem, ServiceCategoryCard } from '../types.ts';
 import { STARTER_PACKAGES } from '../data/starterPackages.ts';
 import { STARTER_BOOKINGS } from '../data/starterBookings.ts';
 import { STARTER_REELS } from '../data/starterReels.ts';
+import { STARTER_SERVICES } from '../data/starterServices.ts';
 import { RachyLogo } from './RachyLogo.tsx';
 import { ImageUploadField } from './ImageUploadField.tsx';
 import { getInstagramEmbedUrl, FALLBACK_REEL_COVERS } from '../utils/instagram.ts';
@@ -40,11 +44,13 @@ interface AdminDashboardProps {
   onBackToSite: () => void;
   bookings?: BookingOrder[];
   reels?: ReelItem[];
+  services?: ServiceCategoryCard[];
   onUpdateBookings?: (bookings: BookingOrder[]) => void;
   onUpdateReels?: (reels: ReelItem[]) => void;
+  onUpdateServices?: (services: ServiceCategoryCard[]) => void;
 }
 
-type TabType = 'bookings' | 'packages' | 'reels' | 'settings';
+type TabType = 'bookings' | 'packages' | 'services' | 'reels' | 'settings';
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   packages,
@@ -55,8 +61,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onBackToSite,
   bookings: initialBookings,
   reels: initialReels,
+  services: initialServices,
   onUpdateBookings,
-  onUpdateReels
+  onUpdateReels,
+  onUpdateServices
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('bookings');
   const [searchTerm, setSearchTerm] = useState('');
@@ -76,11 +84,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Reels state
   const [reels, setReels] = useState<ReelItem[]>(() => {
     if (initialReels && initialReels.length > 0) return initialReels;
-    const saved = localStorage.getItem('rachy_reels');
+    const saved = localStorage.getItem('rachy_reels_v5');
     if (saved) {
       try { return JSON.parse(saved); } catch (e) {}
     }
     return STARTER_REELS;
+  });
+
+  // Services Showcase Cards state
+  const [services, setServices] = useState<ServiceCategoryCard[]>(() => {
+    if (initialServices && initialServices.length > 0) return initialServices;
+    const saved = localStorage.getItem('rachy_services_v1');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    return STARTER_SERVICES;
   });
 
   // Package Modal states
@@ -97,6 +118,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Service Card modal states
+  const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
+  const [editingService, setEditingService] = useState<ServiceCategoryCard | null>(null);
+  const [serviceTitle, setServiceTitle] = useState('');
+  const [serviceBadge, setServiceBadge] = useState('');
+  const [servicePrice, setServicePrice] = useState('');
+  const [serviceCategoryKey, setServiceCategoryKey] = useState('');
+  const [serviceImage, setServiceImage] = useState('');
+  const [serviceTagline, setServiceTagline] = useState('');
+  const [serviceWhatsappMsg, setServiceWhatsappMsg] = useState('');
+  const [serviceDeleteConfirmId, setServiceDeleteConfirmId] = useState<string | null>(null);
+
   // Booking Modal states
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [bookingClientName, setBookingClientName] = useState('');
@@ -112,17 +145,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Settings form states
   const [settingsPhone, setSettingsPhone] = useState(settings?.whatsapp_number || '2347014995254');
+  const [settingsDirectPhone, setSettingsDirectPhone] = useState(settings?.phone_number || '07014995254');
   const [settingsIg, setSettingsIg] = useState(settings?.instagram_handle || 'rachys_eats_treats');
+  const [settingsIgUrl, setSettingsIgUrl] = useState(settings?.instagram_url || 'https://www.instagram.com/rachys_eats_treats?stkn=dXBmc2t5azEzOW44');
   const [settingsBusinessName, setSettingsBusinessName] = useState(settings?.business_name || "Rachy's Eats & Treats");
   const [settingsLocation, setSettingsLocation] = useState(settings?.location || 'Lagos, Nigeria');
+  const [settingsHeroTitle, setSettingsHeroTitle] = useState(settings?.hero_title || '');
+  const [settingsHeroSubtitle, setSettingsHeroSubtitle] = useState(settings?.hero_subtitle || '');
+  const [settingsHeroImage, setSettingsHeroImage] = useState(settings?.hero_image_url || '');
   const [settingsSubmitting, setSettingsSubmitting] = useState(false);
 
-  // Reel form modal (NO THUMBNAIL URL REQUIRED!)
+  // Reel form modal (with custom thumbnail image upload & link support)
   const [isReelModalOpen, setIsReelModalOpen] = useState(false);
   const [editingReel, setEditingReel] = useState<ReelItem | null>(null);
   const [reelTitle, setReelTitle] = useState('');
   const [reelOccasion, setReelOccasion] = useState('Birthday Setup');
   const [reelLink, setReelLink] = useState('');
+  const [reelThumbnail, setReelThumbnail] = useState('');
   const [reelCaption, setReelCaption] = useState('');
 
   const categories = Array.from(new Set(packages.map((p) => p.category).filter(Boolean)));
@@ -145,7 +184,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const saveReels = (updated: ReelItem[]) => {
     setReels(updated);
-    localStorage.setItem('rachy_reels', JSON.stringify(updated));
+    localStorage.setItem('rachy_reels_v5', JSON.stringify(updated));
     if (onUpdateReels) onUpdateReels(updated);
   };
 
@@ -279,25 +318,141 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     showToast('Booking record removed');
   };
 
-  // --- Reel CRUD (NO THUMBNAIL URL NEEDED!) ---
+  // --- Services Showcase CRUD ---
+  const saveServices = async (updated: ServiceCategoryCard[]) => {
+    setServices(updated);
+    localStorage.setItem('rachy_services_v1', JSON.stringify(updated));
+    if (onUpdateServices) onUpdateServices(updated);
+    try {
+      await fetch('/api/services', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify(updated)
+      });
+    } catch (e) {
+      // Handled gracefully offline
+    }
+  };
+
+  const handleOpenAddService = () => {
+    setEditingService(null);
+    setServiceTitle('');
+    setServiceBadge('SPECIAL');
+    setServicePrice('From ₦25,000');
+    setServiceCategoryKey('Surprises');
+    setServiceImage('');
+    setServiceTagline('');
+    setServiceWhatsappMsg('');
+    setIsServiceModalOpen(true);
+  };
+
+  const handleOpenEditService = (srv: ServiceCategoryCard) => {
+    setEditingService(srv);
+    setServiceTitle(srv.title);
+    setServiceBadge(srv.badge);
+    setServicePrice(srv.price);
+    setServiceCategoryKey(srv.categoryKey);
+    setServiceImage(srv.image_url);
+    setServiceTagline(srv.tagline);
+    setServiceWhatsappMsg(srv.whatsappMessage || '');
+    setIsServiceModalOpen(true);
+  };
+
+  const handleSaveService = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!serviceTitle.trim() || !serviceImage.trim()) {
+      showToast('Title and Image are required for the service card');
+      return;
+    }
+
+    const payload: ServiceCategoryCard = {
+      id: editingService ? editingService.id : `service-${Date.now()}`,
+      title: serviceTitle.trim(),
+      badge: (serviceBadge || serviceTitle).toUpperCase().trim(),
+      price: servicePrice.trim() || 'Custom Quote',
+      categoryKey: serviceCategoryKey.trim() || serviceTitle.trim(),
+      image_url: serviceImage.trim(),
+      tagline: serviceTagline.trim(),
+      whatsappMessage:
+        serviceWhatsappMsg.trim() ||
+        `Hi Rachy, I would like to inquire about your ${serviceTitle.trim()} packages from your website!`
+    };
+
+    let updated: ServiceCategoryCard[];
+    if (editingService) {
+      updated = services.map((s) => (s.id === editingService.id ? payload : s));
+    } else {
+      updated = [...services, payload];
+    }
+
+    saveServices(updated);
+    setIsServiceModalOpen(false);
+    showToast(editingService ? 'Service card updated' : 'New service card added');
+  };
+
+  const handleDeleteService = (id: string) => {
+    const updated = services.filter((s) => s.id !== id);
+    saveServices(updated);
+    setServiceDeleteConfirmId(null);
+    showToast('Service card removed');
+  };
+
+  const handleResetServices = () => {
+    if (window.confirm('Reset service cards to the original 4 defaults (Surprises, Food tray, Money box, Hampers)?')) {
+      saveServices(STARTER_SERVICES);
+      showToast('Reset to default 4 service cards');
+    }
+  };
+
+  // --- Reel CRUD ---
   const handleOpenAddReel = () => {
     setEditingReel(null);
     setReelTitle('');
     setReelOccasion('Birthday Setup');
     setReelLink('');
+    setReelThumbnail('');
     setReelCaption('');
     setIsReelModalOpen(true);
   };
 
-  const handleSaveReel = (e: React.FormEvent) => {
+  const handleOpenEditReel = (reel: ReelItem) => {
+    setEditingReel(reel);
+    setReelTitle(reel.title);
+    setReelOccasion(reel.occasion);
+    setReelLink(reel.video_url || reel.instagram_url || '');
+    setReelThumbnail(reel.thumbnail_url || '');
+    setReelCaption(reel.caption || '');
+    setIsReelModalOpen(true);
+  };
+
+  const handleSaveReel = async (e: React.FormEvent) => {
     e.preventDefault();
+    let finalThumbnail = reelThumbnail.trim();
+
+    // If no custom thumbnail was uploaded/provided and it's an Instagram link, try auto-fetch
+    if (!finalThumbnail && reelLink.includes('instagram.com')) {
+      try {
+        const res = await fetch(`/api/instagram-thumbnail?url=${encodeURIComponent(reelLink.trim())}`);
+        const data = await res.json();
+        if (data.success && data.thumbnailUrl) {
+          finalThumbnail = data.thumbnailUrl;
+        }
+      } catch (err) {
+        console.warn('Could not auto-fetch Instagram thumbnail:', err);
+      }
+    }
+
+    if (!finalThumbnail) {
+      finalThumbnail = FALLBACK_REEL_COVERS[reels.length % FALLBACK_REEL_COVERS.length];
+    }
+
     const payload: ReelItem = {
       id: editingReel ? editingReel.id : `reel-${Date.now()}`,
       title: reelTitle.trim(),
       occasion: reelOccasion.trim(),
       video_url: reelLink.trim(),
-      instagram_url: reelLink.trim() || `https://www.instagram.com/${settingsIg.replace('@', '')}`,
-      thumbnail_url: FALLBACK_REEL_COVERS[reels.length % FALLBACK_REEL_COVERS.length],
+      instagram_url: reelLink.trim() || settingsIgUrl || `https://www.instagram.com/${settingsIg.replace('@', '')}`,
+      thumbnail_url: finalThumbnail,
       caption: reelCaption.trim()
     };
 
@@ -309,7 +464,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
     saveReels(updated);
     setIsReelModalOpen(false);
-    showToast(editingReel ? 'Reel updated' : 'Instagram reel added to website');
+    showToast(editingReel ? 'Reel updated successfully' : 'Instagram reel added');
   };
 
   const handleDeleteReel = (id: string) => {
@@ -326,12 +481,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const newSettings: SiteSettings = {
         ...settings,
         whatsapp_number: settingsPhone.trim(),
+        phone_number: settingsDirectPhone.trim(),
         instagram_handle: settingsIg.trim().replace('@', ''),
+        instagram_url: settingsIgUrl.trim(),
         business_name: settingsBusinessName.trim(),
-        location: settingsLocation.trim()
+        location: settingsLocation.trim(),
+        hero_title: settingsHeroTitle.trim(),
+        hero_subtitle: settingsHeroSubtitle.trim(),
+        hero_image_url: settingsHeroImage.trim()
       };
       await onUpdateSettings(newSettings);
-      showToast('Settings saved successfully');
+      showToast('Settings & Hero content saved successfully');
     } catch (err: any) {
       showToast('Error saving settings');
     } finally {
@@ -416,6 +576,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           >
             <Gift className="w-4 h-4" />
             <span>Gift Packages ({packages.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('services')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              activeTab === 'services'
+                ? 'bg-[var(--pink)] text-white shadow-xs'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <Layers className="w-4 h-4" />
+            <span>Service Cards ({services.length})</span>
           </button>
 
           <button
@@ -705,7 +877,114 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
-        {/* TAB 3: INSTAGRAM REELS (NO THUMBNAIL URL REQUIRED!) */}
+        {/* TAB: SERVICES SHOWCASE CARDS (HOME WHAT WE DO) */}
+        {activeTab === 'services' && (
+          <div>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <div>
+                <h2 className="font-serif font-bold text-2xl text-gray-900">
+                  Service Showcase Cards
+                </h2>
+                <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
+                  Customize the high-impact visual service cards on the homepage (Surprises, Food tray, Money box, Hampers). Edit photos, starting prices, WhatsApp messages, badges, and catalog filter targets.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                <button
+                  type="button"
+                  onClick={handleResetServices}
+                  className="px-3 py-2 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-all cursor-pointer"
+                  title="Reset to default 4 signature cards"
+                >
+                  Reset Defaults
+                </button>
+                <button
+                  type="button"
+                  onClick={handleOpenAddService}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[var(--pink)] hover:bg-[var(--pink-hover)] text-white text-xs font-semibold shadow-xs transition-all cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Service Card</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {services.map((card) => (
+                <div
+                  key={card.id}
+                  className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="relative aspect-[4/5] bg-gray-900 overflow-hidden group">
+                      <img
+                        src={card.image_url}
+                        alt={card.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-transparent" />
+                      
+                      <div className="absolute top-2.5 left-2.5">
+                        <span className="px-2.5 py-0.5 rounded-full bg-[var(--pink)] text-white text-[10px] font-bold tracking-wider uppercase shadow-xs">
+                          {card.badge}
+                        </span>
+                      </div>
+
+                      <div className="absolute bottom-3 left-3 right-3 text-white">
+                        <div className="text-base font-bold leading-tight font-serif mb-0.5">
+                          {card.title}
+                        </div>
+                        <div className="text-xs text-pink-300 font-semibold mb-1">
+                          {card.price}
+                        </div>
+                        <p className="text-[11px] text-gray-200 line-clamp-2 leading-tight">
+                          {card.tagline}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-gray-50 border-t border-gray-100 text-[11px] text-gray-600 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-400 font-medium">Catalogue Target:</span>
+                        <span className="font-semibold text-[var(--pink)] bg-pink-50 px-2 py-0.5 rounded border border-pink-100">
+                          {card.categoryKey}
+                        </span>
+                      </div>
+                      <div className="truncate text-gray-500 text-[10px]" title={card.whatsappMessage}>
+                        <span className="font-medium text-gray-400">WhatsApp msg:</span> {card.whatsappMessage}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-white flex items-center justify-between border-t border-gray-100">
+                    <span className="text-xs font-bold text-gray-900">
+                      {card.price}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => handleOpenEditService(card)}
+                        className="p-1.5 rounded-lg text-gray-500 hover:text-[var(--pink)] hover:bg-pink-50 transition-colors cursor-pointer"
+                        title="Edit Card"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setServiceDeleteConfirmId(card.id)}
+                        className="p-1.5 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                        title="Delete Card"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 3: INSTAGRAM REELS */}
         {activeTab === 'reels' && (
           <div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -714,7 +993,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   Instagram Reels Showcase
                 </h2>
                 <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
-                  Simply paste your Instagram Reel link. No manual thumbnail URL required!
+                  Manage featured Instagram celebration clips. Add video links, occasion tags, and custom cover images or let Instagram auto-fetch thumbnails!
                 </p>
               </div>
 
@@ -735,13 +1014,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     key={reel.id}
                     className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between"
                   >
-                    <div className="relative aspect-[9/16] bg-black overflow-hidden">
+                    <div className="relative aspect-[9/16] bg-black overflow-hidden group">
                       <img
                         src={cover}
                         alt={reel.title}
-                        className="w-full h-full object-cover opacity-85"
+                        className="w-full h-full object-cover opacity-85 group-hover:opacity-100 transition-opacity"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-black/30" />
                       <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/60 text-white text-[9px] font-semibold">
                         {reel.occasion}
                       </div>
@@ -752,17 +1031,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </div>
                     </div>
 
-                    <div className="p-3 bg-white flex items-center justify-between border-t border-gray-100">
-                      <span className="text-[10px] text-gray-500 truncate max-w-[80px]">
+                    <div className="p-2.5 bg-white flex items-center justify-between border-t border-gray-100">
+                      <span className="text-[10px] text-gray-500 truncate max-w-[70px]">
                         {reel.occasion}
                       </span>
-                      <button
-                        onClick={() => handleDeleteReel(reel.id)}
-                        className="p-1 rounded text-gray-400 hover:text-red-600 transition-colors cursor-pointer"
-                        title="Delete Reel"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleOpenEditReel(reel)}
+                          className="p-1 rounded text-gray-400 hover:text-[var(--pink)] hover:bg-pink-50 transition-colors cursor-pointer"
+                          title="Edit Reel"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteReel(reel.id)}
+                          className="p-1 rounded text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                          title="Delete Reel"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -783,65 +1071,152 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </p>
             </div>
 
-            <form onSubmit={handleSaveSettings} className="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8 space-y-4 shadow-xs">
+            <form onSubmit={handleSaveSettings} className="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8 space-y-6 shadow-xs">
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                  Business Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={settingsBusinessName}
-                  onChange={(e) => setSettingsBusinessName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-[var(--pink)]"
-                />
+                <h3 className="text-sm font-bold text-gray-900 mb-3 pb-2 border-b border-gray-100 flex items-center gap-2">
+                  <Phone className="w-4 h-4 text-[var(--pink)]" />
+                  <span>Contact & Social Channels</span>
+                </h3>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                      Business Name
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={settingsBusinessName}
+                      onChange={(e) => setSettingsBusinessName(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-[var(--pink)]"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                        WhatsApp Number (with Country Code)
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. 2347014995254"
+                        value={settingsPhone}
+                        onChange={(e) => setSettingsPhone(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-[var(--pink)]"
+                      />
+                      <span className="text-[11px] text-gray-400 block mt-1">
+                        Used for customer chats and booking inquiries.
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                        Direct Phone Call Number
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 07014995254"
+                        value={settingsDirectPhone}
+                        onChange={(e) => setSettingsDirectPhone(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-[var(--pink)]"
+                      />
+                      <span className="text-[11px] text-gray-400 block mt-1">
+                        Displayed for direct phone calls and footer inquiries.
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                        Instagram Handle
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. rachys_eats_treats"
+                        value={settingsIg}
+                        onChange={(e) => setSettingsIg(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-[var(--pink)]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                        Full Instagram URL
+                      </label>
+                      <input
+                        type="url"
+                        placeholder="https://www.instagram.com/rachys_eats_treats..."
+                        value={settingsIgUrl}
+                        onChange={(e) => setSettingsIgUrl(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-[var(--pink)]"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                      Operational Location
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={settingsLocation}
+                      onChange={(e) => setSettingsLocation(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-[var(--pink)]"
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                  WhatsApp Number (with Country Code)
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. 2347014995254"
-                  value={settingsPhone}
-                  onChange={(e) => setSettingsPhone(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-[var(--pink)]"
-                />
-                <span className="text-[11px] text-gray-400 block mt-1">
-                  Used directly for customer chats and booking confirmations.
-                </span>
-              </div>
+              {/* HERO SECTION VISUALS */}
+              <div className="pt-4 border-t border-gray-100">
+                <h3 className="text-sm font-bold text-gray-900 mb-3 pb-2 border-b border-gray-100 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-[var(--pink)]" />
+                  <span>Hero Banner Customization</span>
+                </h3>
 
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                  Instagram Handle
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. rachys_eats_treats"
-                  value={settingsIg}
-                  onChange={(e) => setSettingsIg(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-[var(--pink)]"
-                />
-                <span className="text-[11px] text-gray-400 block mt-1">
-                  Direct link: https://www.instagram.com/{settingsIg.replace('@', '')}
-                </span>
-              </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                      Hero Headline
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Curate a Special Surprise."
+                      value={settingsHeroTitle}
+                      onChange={(e) => setSettingsHeroTitle(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-[var(--pink)]"
+                    />
+                    <span className="text-[11px] text-gray-400 block mt-1">
+                      Leave blank to use default "Curate a Special Surprise."
+                    </span>
+                  </div>
 
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                  Operational Location
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={settingsLocation}
-                  onChange={(e) => setSettingsLocation(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-[var(--pink)]"
-                />
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                      Hero Subtitle Description
+                    </label>
+                    <textarea
+                      rows={2}
+                      placeholder="We double the joy of any occasion with unique and impressive surprises..."
+                      value={settingsHeroSubtitle}
+                      onChange={(e) => setSettingsHeroSubtitle(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-[var(--pink)] resize-none"
+                    />
+                  </div>
+
+                  <div>
+                    <ImageUploadField
+                      label="Hero Background Banner Image"
+                      value={settingsHeroImage}
+                      onChange={(url) => setSettingsHeroImage(url)}
+                      placeholder="Paste image link or upload a high-resolution hero photo"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="pt-3">
@@ -850,7 +1225,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   disabled={settingsSubmitting}
                   className="w-full py-3 rounded-lg bg-[var(--pink)] hover:bg-[var(--pink-hover)] text-white font-semibold text-sm shadow-xs transition-all cursor-pointer"
                 >
-                  {settingsSubmitting ? 'Saving Settings...' : 'Save Settings'}
+                  {settingsSubmitting ? 'Saving Settings...' : 'Save Settings & Hero Visuals'}
                 </button>
               </div>
             </form>
@@ -1122,13 +1497,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       )}
 
-      {/* MODAL: ADD INSTAGRAM REEL (NO THUMBNAIL URL NEEDED!) */}
+      {/* MODAL: ADD / EDIT INSTAGRAM REEL */}
       {isReelModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl border border-gray-200 max-w-lg w-full p-6 shadow-2xl my-6">
+          <div className="bg-white rounded-2xl border border-gray-200 max-w-lg w-full p-6 shadow-2xl my-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-serif font-bold text-lg text-gray-900">
-                Add Instagram Reel
+                {editingReel ? 'Edit Instagram Reel' : 'Add Instagram Reel'}
               </h3>
               <button
                 onClick={() => setIsReelModalOpen(false)}
@@ -1138,7 +1513,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleSaveReel} className="space-y-3.5 text-xs">
+            <form onSubmit={handleSaveReel} className="space-y-4 text-xs">
               <div>
                 <label className="block text-gray-700 font-bold mb-1">
                   Reel Title / Headline
@@ -1146,41 +1521,52 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Saxophonist Serenade in Ikoyi"
+                  placeholder="e.g. Romantic Saxophonist Serenade in Ikoyi"
                   value={reelTitle}
                   onChange={(e) => setReelTitle(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 focus:outline-none focus:border-[var(--pink)]"
                 />
               </div>
 
-              <div>
-                <label className="block text-gray-700 font-bold mb-1">
-                  Occasion Tag
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Birthday Setup, Proposal, Money Box"
-                  value={reelOccasion}
-                  onChange={(e) => setReelOccasion(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 focus:outline-none focus:border-[var(--pink)]"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">
+                    Occasion Tag
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Birthday Setup, Proposal, Money Box"
+                    value={reelOccasion}
+                    onChange={(e) => setReelOccasion(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 focus:outline-none focus:border-[var(--pink)]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">
+                    Instagram Reel / Video Link
+                  </label>
+                  <input
+                    type="url"
+                    required
+                    placeholder="e.g. https://www.instagram.com/reel/..."
+                    value={reelLink}
+                    onChange={(e) => setReelLink(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 focus:outline-none focus:border-[var(--pink)]"
+                  />
+                </div>
               </div>
 
               <div>
-                <label className="block text-gray-700 font-bold mb-1">
-                  Instagram Reel / Video Link
-                </label>
-                <input
-                  type="url"
-                  required
-                  placeholder="Paste Instagram reel link (e.g. https://www.instagram.com/reel/...)"
-                  value={reelLink}
-                  onChange={(e) => setReelLink(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 focus:outline-none focus:border-[var(--pink)]"
+                <ImageUploadField
+                  label="Reel Thumbnail / Cover Photo (Upload or Link)"
+                  value={reelThumbnail}
+                  onChange={(url) => setReelThumbnail(url)}
+                  placeholder="Upload custom cover or leave blank to auto-fetch from Instagram"
                 />
                 <span className="text-[11px] text-gray-400 block mt-1">
-                  ✓ Thumbnail is generated automatically from Instagram. You do not need to upload any thumbnail image!
+                  💡 Tip: You can upload your own cover photo directly, paste an image link, or leave it blank to auto-fetch the Instagram thumbnail.
                 </span>
               </div>
 
@@ -1207,12 +1593,177 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-lg bg-[var(--pink)] font-semibold text-white shadow-xs"
+                  className="px-5 py-2 rounded-lg bg-[var(--pink)] font-semibold text-white shadow-xs hover:bg-[var(--pink-hover)] cursor-pointer"
                 >
-                  Save Reel
+                  {editingReel ? 'Update Reel' : 'Save Reel'}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: ADD / EDIT SERVICE SHOWCASE CARD */}
+      {isServiceModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl border border-gray-200 max-w-lg w-full p-6 shadow-2xl my-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-serif font-bold text-lg text-gray-900">
+                {editingService ? 'Edit Service Showcase Card' : 'Add Service Showcase Card'}
+              </h3>
+              <button
+                onClick={() => setIsServiceModalOpen(false)}
+                className="p-1 rounded-lg text-gray-400 hover:text-gray-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveService} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">
+                    Card Title
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Surprises, Food tray, Money box"
+                    value={serviceTitle}
+                    onChange={(e) => setServiceTitle(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 focus:outline-none focus:border-[var(--pink)]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">
+                    Badge Pill Label
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. SURPRISES, FOOD TRAY, VIP"
+                    value={serviceBadge}
+                    onChange={(e) => setServiceBadge(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 focus:outline-none focus:border-[var(--pink)] uppercase"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">
+                    Starting Price / Rate
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. From ₦25,000"
+                    value={servicePrice}
+                    onChange={(e) => setServicePrice(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 focus:outline-none focus:border-[var(--pink)]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">
+                    Catalogue Target Category
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Surprises, Food tray..."
+                    value={serviceCategoryKey}
+                    onChange={(e) => setServiceCategoryKey(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 focus:outline-none focus:border-[var(--pink)]"
+                  />
+                  <span className="text-[10px] text-gray-400 block mt-1">
+                    Filter triggered when visitor clicks "Explore Packages"
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <ImageUploadField
+                  label="Card Background Image (Upload or Paste Link)"
+                  value={serviceImage}
+                  onChange={(url) => setServiceImage(url)}
+                  placeholder="Upload high quality photo or paste image URL"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-700 font-bold mb-1">
+                  Tagline / Description
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Hotel bedroom setup, proposal, flash mob &amp; violin"
+                  value={serviceTagline}
+                  onChange={(e) => setServiceTagline(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 focus:outline-none focus:border-[var(--pink)]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-700 font-bold mb-1">
+                  Pre-filled WhatsApp Message (Optional)
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Hi Rachy, I would like to inquire about your Surprises from your website."
+                  value={serviceWhatsappMsg}
+                  onChange={(e) => setServiceWhatsappMsg(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 focus:outline-none focus:border-[var(--pink)] resize-none"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsServiceModalOpen(false)}
+                  className="px-4 py-2 font-semibold text-gray-600 hover:bg-gray-50 rounded-lg cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-lg bg-[var(--pink)] font-semibold text-white shadow-xs hover:bg-[var(--pink-hover)] cursor-pointer"
+                >
+                  {editingService ? 'Update Card' : 'Add Card'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CONFIRM DELETE SERVICE CARD */}
+      {serviceDeleteConfirmId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl border border-gray-200 max-w-sm w-full p-6 shadow-2xl text-center">
+            <AlertCircle className="w-10 h-10 text-red-600 mx-auto mb-3" />
+            <h4 className="font-serif font-bold text-base text-gray-900 mb-1">
+              Delete this service card?
+            </h4>
+            <p className="text-xs text-gray-500 mb-5">
+              This card will be removed from the "What We Do" showcase on your homepage.
+            </p>
+            <div className="flex items-center justify-center gap-2">
+              <button
+                onClick={() => setServiceDeleteConfirmId(null)}
+                className="px-4 py-2 rounded-lg border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDeleteService(serviceDeleteConfirmId)}
+                className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold"
+              >
+                Delete Card
+              </button>
+            </div>
           </div>
         </div>
       )}

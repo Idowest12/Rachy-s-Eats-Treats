@@ -3,32 +3,62 @@ import { ReelItem } from '../types.ts';
 export const STARTER_REELS: ReelItem[] = [
   {
     id: 'reel-1',
-    title: 'Saxophonist Birthday Surprise in Lekki Phase 1',
-    occasion: 'Birthday Setup',
-    video_url: 'https://assets.mixkit.co/videos/preview/mixkit-celebrating-a-birthday-with-confetti-42410-large.mp4',
-    thumbnail_url: 'https://images.unsplash.com/photo-1513151233558-d860c5398176?q=80&w=800&auto=format&fit=crop',
-    instagram_url: 'https://www.instagram.com/rachys_eats_treats?stkn=dXBmc2t5azEzOW44',
-    caption: '2 clients, 1 celebrant. She was totally overwhelmed with joy! Live saxophone serenade with custom cake and helium balloon drop.',
-    duration: '0:34'
+    title: "Uber Driver's Heartwarming Birthday Surprise for His Wife",
+    occasion: "Wife's Birthday Surprise",
+    video_url: '',
+    thumbnail_url: '/reels/reel-1.jpg',
+    instagram_url: 'https://www.instagram.com/reel/DcRzt9jo_AA/?stkn=emloeWp3aWo2YjFm',
+    caption: 'Two months ago, I delivered a surprise package for a girl’s graduation. The Uber driver loved what he saw and wanted something similar for his wife’s birthday. Fast forward to this week, he booked and we delivered pure happiness! ❤️✨',
+    duration: 'Watch Reel'
   },
   {
     id: 'reel-2',
-    title: '3-Tier Interactive Money Roll Pullout Reaction',
-    occasion: 'Money Surprise',
-    video_url: 'https://assets.mixkit.co/videos/preview/mixkit-hands-holding-sparklers-at-night-42407-large.mp4',
-    thumbnail_url: 'https://images.unsplash.com/photo-1530103862676-de8c9debad1d?q=80&w=800&auto=format&fit=crop',
-    instagram_url: 'https://www.instagram.com/rachys_eats_treats?stkn=dXBmc2t5azEzOW44',
-    caption: 'She kept pulling and the cash kept rolling! Pure luxury unboxing in Victoria Island. 1.5 million naira in this Tinubu era? 😅',
-    duration: '0:28'
+    title: 'Your #1 Money Box Surprise Vendor in Lagos',
+    occasion: 'Money Box Surprise',
+    video_url: '',
+    thumbnail_url: '/reels/reel-2.jpg',
+    instagram_url: 'https://www.instagram.com/reel/DbqhjxSN8R7/?stkn=MTd1djZ2ZzFudG9iNA==',
+    caption: 'Your number one money box vendor in Lagos! Luxury surprise pullouts, crisp cash bouquets, and custom celebratory presentation towers delivered across Lagos.',
+    duration: 'Watch Reel'
   },
   {
     id: 'reel-3',
-    title: 'Romantic Candlelit Bedroom Decor in Ikoyi',
-    occasion: 'Anniversary & Decor',
-    video_url: 'https://assets.mixkit.co/videos/preview/mixkit-romantic-candlelit-dinner-table-41619-large.mp4',
-    thumbnail_url: 'https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=800&auto=format&fit=crop',
-    instagram_url: 'https://www.instagram.com/rachys_eats_treats?stkn=dXBmc2t5azEzOW44',
-    caption: 'Red rose petal pathway, custom neon sign, and chilled champagne for their 5th anniversary. He wanted to blow her mind!',
-    duration: '0:45'
+    title: 'Real Tears of Joy & Unforgettable Lagos Surprises',
+    occasion: 'Celebration Moments',
+    video_url: '',
+    thumbnail_url: '/reels/real_reaction_1.jpg',
+    instagram_url: 'https://www.instagram.com/reel/DcRzt9jo_AA/?stkn=emloeWp3aWo2YjFm',
+    caption: 'Whatever you do, be good at it, be respectful, and treat people well. You never know where your next client will come from. Watch this heartwarming celebration reaction! 🥰🎉',
+    duration: 'Watch Reel'
+  },
+  {
+    id: 'reel-4',
+    title: 'Romantic Bedroom Balloon Setup & Saxophone Serenade',
+    occasion: 'Romantic Surprise',
+    video_url: '',
+    thumbnail_url: '/reels/real_sax_serenade.jpg',
+    instagram_url: 'https://www.instagram.com/reel/DcRzt9jo_AA/?stkn=emloeWp3aWo2YjFm',
+    caption: 'Surprise saxophone serenade with luxury balloon ceiling, champagne, and rose petals on the bed! The ultimate romantic milestone.',
+    duration: 'Watch Reel'
+  },
+  {
+    id: 'reel-5',
+    title: 'Cascading Cash Tower & Chocolate Box Unboxing',
+    occasion: 'Money Pullout',
+    video_url: '',
+    thumbnail_url: '/reels/celebration_cake.jpg',
+    instagram_url: 'https://www.instagram.com/reel/DbqhjxSN8R7/?stkn=MTd1djZ2ZzFudG9iNA==',
+    caption: 'She pulled and pulled until she couldn’t stop smiling! Watch this viral money tower reveal delivered in Lekki.',
+    duration: 'Watch Reel'
+  },
+  {
+    id: 'reel-6',
+    title: 'Midnight Birthday Bell & Sparkler Celebration',
+    occasion: 'Midnight Surprise',
+    video_url: '',
+    thumbnail_url: '/reels/surprise_balloons.jpg',
+    instagram_url: 'https://www.instagram.com/reel/DcRzt9jo_AA/?stkn=emloeWp3aWo2YjFm',
+    caption: '12:00 AM sharp surprise knock at the door with cake, sparklers, and loud birthday songs! Tears of pure joy.',
+    duration: 'Watch Reel'
   }
 ];

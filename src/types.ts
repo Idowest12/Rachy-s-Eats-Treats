@@ -18,6 +18,21 @@ export interface SiteSettings {
   business_name: string;
   location: string;
   delivery_areas?: string[];
+  hero_title?: string;
+  hero_subtitle?: string;
+  hero_badge?: string;
+  hero_image_url?: string;
+}
+
+export interface ServiceCategoryCard {
+  id: string;
+  categoryKey: string;
+  badge: string;
+  title: string;
+  price: string;
+  tagline: string;
+  image_url: string;
+  whatsappMessage: string;
 }
 
 export interface ReelItem {

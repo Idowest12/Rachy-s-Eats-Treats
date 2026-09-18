@@ -32,8 +32,8 @@ export const Hero: React.FC<HeroProps> = ({
       {/* Real luxury hotel bedroom surprise setup background (inspired directly by K surprise reference) */}
       <div className="absolute inset-0 z-0">
         <img
-          src="https://images.unsplash.com/photo-1513151233558-d860c5398176?q=80&w=1920&auto=format&fit=crop"
-          alt="Luxury surprise bedroom decor"
+          src={settings?.hero_image_url || "https://images.unsplash.com/photo-1513151233558-d860c5398176?q=80&w=1920&auto=format&fit=crop"}
+          alt="Luxury surprise celebration decor"
           className="w-full h-full object-cover object-center filter brightness-[0.45] contrast-[1.05]"
         />
         {/* Deep luxury vignette gradient scrim */}
@@ -50,10 +50,16 @@ export const Hero: React.FC<HeroProps> = ({
             transition={{ duration: 0.5 }}
             className="font-serif font-bold text-4xl sm:text-6xl lg:text-7xl text-white tracking-tight leading-[1.12] mb-5"
           >
-            Curate a{' '}
-            <span className="text-[var(--pink)] font-serif font-bold block sm:inline">
-              Special Surprise.
-            </span>
+            {settings?.hero_title ? (
+              settings.hero_title
+            ) : (
+              <>
+                Curate a{' '}
+                <span className="text-[var(--pink)] font-serif font-bold block sm:inline">
+                  Special Surprise.
+                </span>
+              </>
+            )}
           </motion.h1>
 
           {/* Subtitle */}
@@ -63,7 +69,7 @@ export const Hero: React.FC<HeroProps> = ({
             transition={{ duration: 0.5, delay: 0.15 }}
             className="font-sans text-base sm:text-lg text-gray-200 leading-relaxed mb-8 max-w-xl font-normal"
           >
-            We double the joy of any occasion with unique and impressive surprises that create unforgettable memories.
+            {settings?.hero_subtitle || "We double the joy of any occasion with unique and impressive surprises that create unforgettable memories."}
           </motion.p>
 
           {/* Action Buttons with curved edges */}

@@ -6,7 +6,8 @@ import cookieParser from 'cookie-parser';
 import { v2 as cloudinary } from 'cloudinary';
 import { createServer as createViteServer } from 'vite';
 import { STARTER_PACKAGES } from './src/data/starterPackages.ts';
-import { Package, SiteSettings } from './src/types.ts';
+import { STARTER_SERVICES } from './src/data/starterServices.ts';
+import { Package, SiteSettings, ServiceCategoryCard } from './src/types.ts';
 
 const app = express();
 const PORT = 3000;
@@ -43,6 +44,7 @@ function getCloudinary() {
 const DATA_DIR = path.join(process.cwd(), 'data');
 const PACKAGES_FILE = path.join(DATA_DIR, 'packages.json');
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
+const SERVICES_FILE = path.join(DATA_DIR, 'services.json');
 const ANALYTICS_FILE = path.join(DATA_DIR, 'analytics.json');
 const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
 
@@ -249,6 +251,28 @@ function saveSettings(settings: SiteSettings): void {
   }
 }
 
+function loadServices(): ServiceCategoryCard[] {
+  try {
+    if (fs.existsSync(SERVICES_FILE)) {
+      const data = fs.readFileSync(SERVICES_FILE, 'utf-8');
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (err) {
+    console.error('Error reading services file:', err);
+  }
+  saveServices(STARTER_SERVICES);
+  return STARTER_SERVICES;
+}
+
+function saveServices(services: ServiceCategoryCard[]): void {
+  try {
+    fs.writeFileSync(SERVICES_FILE, JSON.stringify(services, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Error saving services:', err);
+  }
+}
+
 // Token helper
 function generateToken(): string {
   const payload = JSON.stringify({ role: 'admin', ts: Date.now() });
@@ -445,6 +469,57 @@ app.get('/api/auth/status', (req, res) => {
   return res.json({ authenticated });
 });
 
+// Endpoint to automatically fetch and cache real Instagram reel thumbnail
+app.get('/api/instagram-thumbnail', async (req, res) => {
+  try {
+    const rawUrl = (req.query.url as string) || '';
+    if (!rawUrl) {
+      return res.status(400).json({ error: 'url parameter is required' });
+    }
+
+    const shortcodeMatch = rawUrl.match(/instagram\.com\/(?:reel|reels|p|tv)\/([^/?#&]+)/i);
+    const shortcode = shortcodeMatch ? shortcodeMatch[1] : null;
+
+    if (!shortcode) {
+      return res.status(400).json({ error: 'Invalid Instagram reel URL' });
+    }
+
+    // Check if we already cached this thumbnail locally
+    const publicReelsDir = path.join(process.cwd(), 'public', 'reels');
+    if (!fs.existsSync(publicReelsDir)) {
+      fs.mkdirSync(publicReelsDir, { recursive: true });
+    }
+    const cachedFile = path.join(publicReelsDir, `${shortcode}.jpg`);
+    if (fs.existsSync(cachedFile)) {
+      return res.json({ success: true, thumbnailUrl: `/reels/${shortcode}.jpg` });
+    }
+
+    // Fetch Instagram page to parse og:image
+    const igUrl = `https://www.instagram.com/reel/${shortcode}/`;
+    const resp = await fetch(igUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
+    });
+    const htmlText = await resp.text();
+    const ogMatch = htmlText.match(/<meta\s+property="og:image"\s+content="([^"]+)"/i);
+
+    if (ogMatch && ogMatch[1]) {
+      const imgCdnUrl = ogMatch[1].replace(/&amp;/g, '&');
+      // Download and cache
+      const imgResp = await fetch(imgCdnUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+      if (imgResp.ok) {
+        const buffer = Buffer.from(await imgResp.arrayBuffer());
+        fs.writeFileSync(cachedFile, buffer);
+        return res.json({ success: true, thumbnailUrl: `/reels/${shortcode}.jpg` });
+      }
+    }
+
+    return res.json({ success: false, error: 'Could not extract Instagram thumbnail' });
+  } catch (err: any) {
+    console.error('Error fetching IG thumbnail:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Packages endpoints
 app.get('/api/packages', (req, res) => {
   try {
@@ -563,13 +638,35 @@ app.post('/api/settings', requireAdmin, (req, res) => {
       ...current,
       whatsapp_number: req.body.whatsapp_number ? req.body.whatsapp_number.trim() : current.whatsapp_number,
       instagram_handle: req.body.instagram_handle ? req.body.instagram_handle.trim() : current.instagram_handle,
+      instagram_url: req.body.instagram_url ? req.body.instagram_url.trim() : current.instagram_url,
+      phone_number: req.body.phone_number ? req.body.phone_number.trim() : current.phone_number,
       business_name: req.body.business_name ? req.body.business_name.trim() : current.business_name,
-      location: req.body.location ? req.body.location.trim() : current.location
+      location: req.body.location ? req.body.location.trim() : current.location,
+      hero_title: req.body.hero_title !== undefined ? req.body.hero_title.trim() : current.hero_title,
+      hero_subtitle: req.body.hero_subtitle !== undefined ? req.body.hero_subtitle.trim() : current.hero_subtitle,
+      hero_image_url: req.body.hero_image_url !== undefined ? req.body.hero_image_url.trim() : current.hero_image_url,
     };
     saveSettings(updated);
     return res.json(updated);
   } catch (err: any) {
     return res.status(500).json({ error: err.message || 'Failed to update settings' });
+  }
+});
+
+// Services Showcase endpoints
+app.get('/api/services', (req, res) => {
+  res.json(loadServices());
+});
+
+app.post('/api/services', requireAdmin, (req, res) => {
+  try {
+    if (Array.isArray(req.body)) {
+      saveServices(req.body);
+      return res.json(req.body);
+    }
+    return res.status(400).json({ error: 'Expected an array of service cards' });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to save services' });
   }
 });
 

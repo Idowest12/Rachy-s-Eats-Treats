@@ -6,9 +6,20 @@ export function getInstagramShortcode(url: string): string | null {
   return match ? match[1] : null;
 }
 
-export function getInstagramEmbedUrl(url: string): string | null {
+export function getInstagramEmbedUrl(url: string, captioned: boolean = false): string | null {
   const code = getInstagramShortcode(url);
-  return code ? `https://www.instagram.com/reel/${code}/embed/captioned/` : null;
+  if (!code) return null;
+  return captioned
+    ? `https://www.instagram.com/reel/${code}/embed/captioned/`
+    : `https://www.instagram.com/reel/${code}/embed/`;
+}
+
+export function getInstagramWatchUrl(url: string): string {
+  const code = getInstagramShortcode(url);
+  if (code) {
+    return `https://www.instagram.com/reel/${code}/`;
+  }
+  return url || 'https://www.instagram.com/rachys_eats_treats';
 }
 
 export function isInstagramUrl(url: string): boolean {
@@ -26,12 +37,12 @@ export function getTikTokEmbedUrl(url: string): string | null {
   return match ? `https://www.tiktok.com/embed/v2/${match[1]}` : null;
 }
 
-// Fallback high quality surprise celebration covers
+// Fallback authentic celebration covers
 export const FALLBACK_REEL_COVERS = [
-  'https://images.unsplash.com/photo-1513151233558-d860c5398176?q=80&w=800&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1530103862676-de8c9debad1d?q=80&w=800&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=800&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1518895949257-7621c3c786d7?q=80&w=800&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1515934751635-c81c6bc9a2d8?q=80&w=800&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?q=80&w=800&auto=format&fit=crop'
+  '/reels/reel-1.jpg',
+  '/reels/reel-2.jpg',
+  '/reels/real_reaction_1.jpg',
+  '/reels/real_sax_serenade.jpg',
+  '/reels/celebration_cake.jpg',
+  '/reels/surprise_balloons.jpg'
 ];

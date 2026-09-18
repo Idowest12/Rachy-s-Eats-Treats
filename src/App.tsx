@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect, useState, useMemo } from 'react';
-import { Package, SiteSettings, BookingOrder, ReelItem } from './types.ts';
+import { Package, SiteSettings, BookingOrder, ReelItem, ServiceCategoryCard } from './types.ts';
 import { Navbar } from './components/Navbar.tsx';
 import { Hero } from './components/Hero.tsx';
 import { ServicesShowcase } from './components/ServicesShowcase.tsx';
@@ -23,6 +23,7 @@ import { MessageCircle, Sparkles, Filter, Gift } from 'lucide-react';
 import { STARTER_PACKAGES } from './data/starterPackages.ts';
 import { STARTER_BOOKINGS } from './data/starterBookings.ts';
 import { STARTER_REELS } from './data/starterReels.ts';
+import { STARTER_SERVICES } from './data/starterServices.ts';
 import { trackVisit, trackOutreach } from './utils/analytics.ts';
 
 type ViewMode = 'public' | 'admin-login' | 'admin-dashboard';
@@ -81,19 +82,41 @@ export default function App() {
     return STARTER_BOOKINGS;
   });
 
-  // Reels state
+  // Reels state with version check to guarantee 6 featured reels with authentic thumbnails are present
   const [reels, setReels] = useState<ReelItem[]>(() => {
     try {
-      const saved = localStorage.getItem('rachy_reels');
+      const saved = localStorage.getItem('rachy_reels_v5');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length >= 6) {
+          // Verify they don't contain old unsplash placeholders
+          const hasOldUnsplash = parsed.some(r => r.thumbnail_url?.includes('images.unsplash.com/photo-1513151233558'));
+          if (!hasOldUnsplash) return parsed;
+        }
+      }
+    } catch {}
+    try {
+      localStorage.removeItem('rachy_reels');
+      localStorage.removeItem('rachy_reels_v3');
+      localStorage.removeItem('rachy_reels_v4');
+      localStorage.setItem('rachy_reels_v5', JSON.stringify(STARTER_REELS));
+    } catch {}
+    return STARTER_REELS;
+  });
+
+  // Services Showcase Cards state (editable in Admin)
+  const [services, setServices] = useState<ServiceCategoryCard[]>(() => {
+    try {
+      const saved = localStorage.getItem('rachy_services_v1');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch {}
-    return STARTER_REELS;
+    return STARTER_SERVICES;
   });
 
-  const [activeCategory, setActiveCategory] = useState<string>('all');
+  const [activeCategory, setActiveCategory] = useState<string>('Surprises');
   const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState<boolean>(false);
   const [preselectedService, setPreselectedService] = useState<string | undefined>(undefined);
@@ -188,6 +211,30 @@ export default function App() {
     } catch {}
   };
 
+  const fetchServices = async () => {
+    try {
+      const res = await fetch('/api/services');
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          setServices(data);
+          localStorage.setItem('rachy_services_v1', JSON.stringify(data));
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('Backend /api/services unavailable, using local cache:', err);
+    }
+    try {
+      const saved = localStorage.getItem('rachy_services_v1');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) setServices(parsed);
+      }
+    } catch {}
+  };
+
   const checkAuthStatus = async () => {
     try {
       const token = sessionStorage.getItem('rachy_admin_token');
@@ -213,7 +260,7 @@ export default function App() {
   useEffect(() => {
     const init = async () => {
       setLoading(true);
-      await Promise.all([fetchPackages(), fetchSettings(), checkAuthStatus()]);
+      await Promise.all([fetchPackages(), fetchSettings(), fetchServices(), checkAuthStatus()]);
       setLoading(false);
     };
     init();
@@ -228,35 +275,49 @@ export default function App() {
     return Array.from(set);
   }, [packages]);
 
-  // Group packages by category
+  // Normalize category names to the 4 canonical groups from Image 1
+  const normalizeCategory = (cat?: string): string => {
+    const lower = (cat || '').toLowerCase();
+    if (lower.includes('surprise') || lower.includes('birthday')) return 'Surprises';
+    if (lower.includes('food') || lower.includes('tray')) return 'Food tray';
+    if (lower.includes('money')) return 'Money box';
+    if (lower.includes('hamper') || lower.includes('gift')) return 'Hampers';
+    return cat || 'Surprises';
+  };
+
+  // Group packages by normalized category in exact canonical order
   const groupedPackages = useMemo(() => {
-    const map: Record<string, Package[]> = {};
+    const map: Record<string, Package[]> = {
+      'Surprises': [],
+      'Food tray': [],
+      'Money box': [],
+      'Hampers': []
+    };
+
     packages.forEach((p) => {
-      const cat = p.category || 'Special Offers';
+      const cat = normalizeCategory(p.category);
       if (!map[cat]) map[cat] = [];
-      map[cat].push(p);
+      map[cat].push({ ...p, category: cat });
     });
+
     Object.keys(map).forEach((cat) => {
       map[cat].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
     });
+
+    // Remove empty categories if any
+    Object.keys(map).forEach((cat) => {
+      if (map[cat].length === 0) delete map[cat];
+    });
+
     return map;
   }, [packages]);
 
   const handleSelectCategory = (cat: string) => {
     setActiveCategory(cat);
-    if (cat === 'all') {
-      const el = document.getElementById('catalogue');
-      if (el) el.scrollIntoView({ behavior: 'smooth' });
-    } else {
-      const sectionId = `category-${cat.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
-      const el = document.getElementById(sectionId);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth' });
-      } else {
-        const catContainer = document.getElementById('catalogue');
-        if (catContainer) catContainer.scrollIntoView({ behavior: 'smooth' });
-      }
-    }
+    setTimeout(() => {
+      const catalogueEl = document.getElementById('catalogue');
+      if (catalogueEl) catalogueEl.scrollIntoView({ behavior: 'smooth' });
+    }, 40);
   };
 
   const handleLoginSuccess = () => {
@@ -336,12 +397,24 @@ export default function App() {
         settings={settings}
         bookings={bookings}
         reels={reels}
+        services={services}
         onRefreshPackages={fetchPackages}
         onUpdateSettings={handleUpdateSettings}
         onLogout={handleLogout}
         onBackToSite={() => navigateTo('public', '/')}
         onUpdateBookings={(b) => setBookings(b)}
-        onUpdateReels={(r) => setReels(r)}
+        onUpdateReels={(r) => {
+          setReels(r);
+          try {
+            localStorage.setItem('rachy_reels_v5', JSON.stringify(r));
+          } catch {}
+        }}
+        onUpdateServices={(s) => {
+          setServices(s);
+          try {
+            localStorage.setItem('rachy_services_v1', JSON.stringify(s));
+          } catch {}
+        }}
       />
     );
   }
@@ -356,6 +429,9 @@ export default function App() {
         onOpenBooking={() => handleBookSurprise()}
         onOpenAdmin={() => navigateTo('admin-login', '/admin')}
         isAdminLoggedIn={isAdminLoggedIn}
+        activeCategory={activeCategory}
+        onSelectCategory={(cat) => setActiveCategory(cat)}
+        categories={categories}
       />
 
       {/* Hero Section */}
@@ -377,11 +453,12 @@ export default function App() {
 
       {/* Featured Curated Packages (Style of Picture 3 with Image 2 Birthday Packages) */}
       <ServicesShowcase
+        services={services}
+        activeCategory={activeCategory}
         onSelectSegmentCategory={(categoryKey) => {
           setActiveCategory(categoryKey);
-          const catalogueEl = document.getElementById('catalogue');
-          if (catalogueEl) catalogueEl.scrollIntoView({ behavior: 'smooth' });
         }}
+        packages={packages}
         onSelectPackage={(pkg) => setSelectedPackage(pkg)}
         onOpenBooking={(serviceName) => handleBookSurprise(serviceName)}
         settings={settings}
@@ -395,7 +472,8 @@ export default function App() {
       />
 
       {/* Main Public Catalogue */}
-      <main id="catalogue" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
+      <main id="packages-section" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 scroll-mt-20">
+        <div id="catalogue" className="scroll-mt-20" />
         
         {/* Section Title */}
         <div className="text-center max-w-2xl mx-auto mb-10 sm:mb-12">
@@ -410,38 +488,22 @@ export default function App() {
             Select a package below to inspect details or order directly through WhatsApp with custom notes and delivery preferences.
           </p>
 
-          {/* 4 Segment Category Filter Pills matching Image 1 */}
-          <div className="inline-flex items-center flex-wrap justify-center gap-2 sm:gap-2.5 p-1.5 bg-neutral-900 rounded-full mt-6 border border-neutral-800 shadow-md">
-            {[
-              { id: 'all', label: 'All Packages', categoryKey: 'all' },
-              { id: 'surprises', label: 'Surprises', categoryKey: 'Birthday Sets' },
-              { id: 'food-tray', label: 'Food tray', categoryKey: 'Food Trays' },
-              { id: 'money-box', label: 'Money box', categoryKey: 'Money box' },
-              { id: 'hampers', label: 'Hampers', categoryKey: 'Hampers & Gift Boxes' },
-            ].map((seg) => {
-              const isActive =
-                activeCategory === seg.categoryKey ||
-                (seg.categoryKey !== 'all' &&
-                  (activeCategory.toLowerCase().includes(seg.label.toLowerCase()) ||
-                    seg.label.toLowerCase().includes(activeCategory.toLowerCase())));
-
-              return (
-                <button
-                  key={seg.id}
-                  onClick={() => {
-                    setActiveCategory(seg.categoryKey);
-                  }}
-                  className={`px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer ${
-                    isActive
-                      ? 'bg-[var(--pink)] text-white shadow-sm shadow-pink-500/20'
-                      : 'text-gray-300 hover:text-white hover:bg-neutral-800'
-                  }`}
-                >
-                  {seg.label}
-                </button>
-              );
-            })}
-          </div>
+          {/* Active Filter Indicator - only shown when a category is selected in Nav Bar */}
+          {activeCategory !== 'all' && (
+            <div className="mt-5 inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-pink-50 border border-pink-200 text-xs text-gray-800 shadow-xs animate-in fade-in">
+              <span>
+                Filtered by: <strong className="text-[var(--pink)] font-bold capitalize">{activeCategory}</strong>
+              </span>
+              <span className="text-gray-300">•</span>
+              <button
+                type="button"
+                onClick={() => setActiveCategory('all')}
+                className="text-[var(--pink)] hover:text-[var(--pink-hover)] font-semibold underline cursor-pointer"
+              >
+                Reset to All Packages
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Filtered / Full Package Sections */}

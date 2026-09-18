@@ -3,7 +3,7 @@ import { Package } from '../types.ts';
 export const STARTER_PACKAGES: Package[] = [
   {
     id: 1,
-    category: 'Birthday Sets',
+    category: 'Surprises',
     title: 'Luxury Velvet Birthday Box',
     price: '₦45,000',
     image_url: 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?q=80&w=800&auto=format&fit=crop',
@@ -13,7 +13,7 @@ export const STARTER_PACKAGES: Package[] = [
   },
   {
     id: 2,
-    category: 'Birthday Sets',
+    category: 'Surprises',
     title: 'Midnight Sparkle Balloon & Cake Set',
     price: '₦55,000',
     image_url: 'https://images.unsplash.com/photo-1513151233558-d860c5398176?q=80&w=800&auto=format&fit=crop',
@@ -23,7 +23,7 @@ export const STARTER_PACKAGES: Package[] = [
   },
   {
     id: 3,
-    category: 'Birthday Sets',
+    category: 'Surprises',
     title: 'Sweet Celebration Mini Box',
     price: '₦25,000',
     image_url: 'https://images.unsplash.com/photo-1513885535751-8b9238bd345a?q=80&w=800&auto=format&fit=crop',
@@ -33,7 +33,7 @@ export const STARTER_PACKAGES: Package[] = [
   },
   {
     id: 13,
-    category: 'Birthday Sets',
+    category: 'Surprises',
     title: 'Grand Romantic Birthday Surprise Set',
     price: '₦40,000',
     image_url: 'https://images.unsplash.com/photo-1518895949257-7621c3c786d7?q=80&w=800&auto=format&fit=crop',
@@ -73,7 +73,7 @@ export const STARTER_PACKAGES: Package[] = [
   },
   {
     id: 7,
-    category: 'Food Trays',
+    category: 'Food tray',
     title: 'The Lagos Executive Breakfast Tray',
     price: '₦38,000',
     image_url: 'https://images.unsplash.com/photo-1533089860892-a7c6f0a88666?q=80&w=800&auto=format&fit=crop',
@@ -83,7 +83,7 @@ export const STARTER_PACKAGES: Package[] = [
   },
   {
     id: 8,
-    category: 'Food Trays',
+    category: 'Food tray',
     title: 'Royal Brunch Feast & Mocktail Tray',
     price: '₦50,000',
     image_url: 'https://images.unsplash.com/photo-1550547660-d9450f859349?q=80&w=800&auto=format&fit=crop',
@@ -93,7 +93,7 @@ export const STARTER_PACKAGES: Package[] = [
   },
   {
     id: 9,
-    category: 'Food Trays',
+    category: 'Food tray',
     title: 'Jollof & Grills Celebration Platter',
     price: '₦42,000',
     image_url: 'https://images.unsplash.com/photo-1544025162-d76694265947?q=80&w=800&auto=format&fit=crop',
@@ -103,7 +103,7 @@ export const STARTER_PACKAGES: Package[] = [
   },
   {
     id: 10,
-    category: 'Hampers & Gift Boxes',
+    category: 'Hampers',
     title: "Gentleman's Premium Treat Box",
     price: '₦48,000',
     image_url: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?q=80&w=800&auto=format&fit=crop',
@@ -113,7 +113,7 @@ export const STARTER_PACKAGES: Package[] = [
   },
   {
     id: 11,
-    category: 'Hampers & Gift Boxes',
+    category: 'Hampers',
     title: 'Pamper & Glow Sweet Hamper',
     price: '₦40,000',
     image_url: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?q=80&w=800&auto=format&fit=crop',
@@ -123,7 +123,7 @@ export const STARTER_PACKAGES: Package[] = [
   },
   {
     id: 12,
-    category: 'Hampers & Gift Boxes',
+    category: 'Hampers',
     title: 'Grand Intention Luxury Hamper',
     price: '₦75,000',
     image_url: 'https://images.unsplash.com/photo-1607344645866-009c320c5ab8?q=80&w=800&auto=format&fit=crop',
