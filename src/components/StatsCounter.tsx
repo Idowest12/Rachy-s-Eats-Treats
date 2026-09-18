@@ -107,13 +107,13 @@ export const StatsCounter: React.FC = () => {
     <section
       id="impact-stats"
       ref={sectionRef}
-      className="relative py-20 sm:py-28 bg-[#0e0c0b] border-t border-[rgba(245,236,226,0.08)] overflow-hidden"
+      className="relative py-20 sm:py-28 bg-white border-t border-gray-200 overflow-hidden"
     >
       {/* Subtle warm pink ambient glow */}
       <div
         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] rounded-full pointer-events-none opacity-20 blur-[120px]"
         style={{
-          background: 'radial-gradient(circle, #e2417e 0%, rgba(226,65,126,0.1) 40%, transparent 70%)'
+          background: 'radial-gradient(circle, #e2417e 0%, rgba(226,65,126,0.05) 40%, transparent 70%)'
         }}
         aria-hidden="true"
       />
@@ -121,12 +121,12 @@ export const StatsCounter: React.FC = () => {
       <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         
         {/* Editorial Headline */}
-        <h2 className="font-serif font-bold text-3xl sm:text-4xl md:text-5xl text-[#f5ece2] tracking-tight leading-[1.15] mb-5">
+        <h2 className="font-serif font-bold text-3xl sm:text-4xl md:text-5xl text-gray-900 tracking-tight leading-[1.15] mb-5">
           Gifts curated with care, delivered on time.
         </h2>
 
         {/* Narrative Paragraph */}
-        <p className="font-sans text-sm sm:text-base md:text-lg text-[#b8a89d] max-w-2xl mx-auto leading-relaxed mb-14 sm:mb-20">
+        <p className="font-sans text-sm sm:text-base md:text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed mb-14 sm:mb-20">
           Every box is packed by hand and every delivery is planned around the moment it's meant for — a birthday, a proposal, a thank you that needed saying properly.
         </p>
 
@@ -143,7 +143,7 @@ export const StatsCounter: React.FC = () => {
                 startTrigger={hasScrolledIntoView}
               />
             </div>
-            <span className="font-sans text-xs sm:text-sm text-[#b8a89d] mt-2 tracking-wide font-medium">
+            <span className="font-sans text-xs sm:text-sm text-gray-600 mt-2 tracking-wide font-medium">
               Orders delivered
             </span>
           </div>
@@ -158,7 +158,7 @@ export const StatsCounter: React.FC = () => {
                 startTrigger={hasScrolledIntoView}
               />
             </div>
-            <span className="font-sans text-xs sm:text-sm text-[#b8a89d] mt-2 tracking-wide font-medium">
+            <span className="font-sans text-xs sm:text-sm text-gray-600 mt-2 tracking-wide font-medium">
               Instagram community
             </span>
           </div>
@@ -176,7 +176,7 @@ export const StatsCounter: React.FC = () => {
                 Lagos
               </span>
             </div>
-            <span className="font-sans text-xs sm:text-sm text-[#b8a89d] mt-2 tracking-wide font-medium">
+            <span className="font-sans text-xs sm:text-sm text-gray-600 mt-2 tracking-wide font-medium">
               Same-day delivery
             </span>
           </div>

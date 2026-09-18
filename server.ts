@@ -222,9 +222,11 @@ function savePackages(packages: Package[]): void {
 // Initialize settings
 const DEFAULT_SETTINGS: SiteSettings = {
   whatsapp_number: process.env.WHATSAPP_NUMBER || '2347014995254',
-  instagram_handle: process.env.INSTAGRAM_HANDLE || 'rachys_eats_and_treats',
+  instagram_handle: process.env.INSTAGRAM_HANDLE || 'rachys_eats_treats',
+  instagram_url: 'https://www.instagram.com/rachys_eats_treats?stkn=dXBmc2t5azEzOW44',
   business_name: "Rachy's Eats & Treats",
-  location: 'Lagos, Nigeria'
+  location: 'Lagos, Nigeria',
+  phone_number: '07014995254'
 };
 
 function loadSettings(): SiteSettings {

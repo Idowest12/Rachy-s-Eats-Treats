@@ -12,8 +12,51 @@ export interface Package {
 export interface SiteSettings {
   whatsapp_number: string;
   instagram_handle: string;
+  instagram_url?: string;
+  phone_number?: string;
+  email?: string;
   business_name: string;
   location: string;
+  delivery_areas?: string[];
+}
+
+export interface ReelItem {
+  id: string;
+  title: string;
+  occasion: string;
+  video_url?: string;
+  thumbnail_url?: string;
+  instagram_url?: string;
+  caption?: string;
+  duration?: string;
+}
+
+export interface BookingOrder {
+  id: string;
+  client_name: string;
+  client_phone: string;
+  recipient_name: string;
+  occasion: string;
+  package_title: string;
+  delivery_date: string;
+  delivery_time: string;
+  location_area: string;
+  delivery_address: string;
+  add_ons: string[];
+  budget_estimate: string;
+  status: 'Inquiry' | 'Confirmed' | 'Decorating' | 'Delivered';
+  created_at: string;
+  notes?: string;
+}
+
+export interface ServiceCategory {
+  id: string;
+  title: string;
+  tagline: string;
+  description: string;
+  image_url: string;
+  starting_price: string;
+  features: string[];
 }
 
 export interface AdminAuthResponse {
