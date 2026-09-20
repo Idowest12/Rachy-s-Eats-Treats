@@ -137,3 +137,17 @@ export interface StorageStatus {
   message: string;
 }
 
+export interface DatabaseStatus {
+  connected: boolean;
+  provider: 'supabase' | 'local';
+  url: string;
+  tables: {
+    packages: boolean;
+    services: boolean;
+    settings: boolean;
+    bookings: boolean;
+    reels: boolean;
+  };
+  message: string;
+}
+

@@ -235,6 +235,43 @@ export default function App() {
     } catch {}
   };
 
+  const fetchReels = async () => {
+    try {
+      const res = await fetch('/api/reels');
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          setReels(data);
+          localStorage.setItem('rachy_reels_v5', JSON.stringify(data));
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('Backend /api/reels unavailable, using local cache:', err);
+    }
+  };
+
+  const fetchBookings = async () => {
+    try {
+      const token = sessionStorage.getItem('rachy_admin_token');
+      if (!token) return;
+      const res = await fetch('/api/bookings', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setBookings(data);
+          localStorage.setItem('rachy_bookings', JSON.stringify(data));
+        }
+      }
+    } catch (err) {
+      console.warn('Backend /api/bookings unavailable, using local cache:', err);
+    }
+  };
+
   const checkAuthStatus = async () => {
     try {
       const token = sessionStorage.getItem('rachy_admin_token');
@@ -260,7 +297,7 @@ export default function App() {
   useEffect(() => {
     const init = async () => {
       setLoading(true);
-      await Promise.all([fetchPackages(), fetchSettings(), fetchServices(), checkAuthStatus()]);
+      await Promise.all([fetchPackages(), fetchSettings(), fetchServices(), fetchReels(), fetchBookings(), checkAuthStatus()]);
       setLoading(false);
     };
     init();
@@ -364,6 +401,11 @@ export default function App() {
     const updated = [newBooking, ...bookings];
     setBookings(updated);
     localStorage.setItem('rachy_bookings', JSON.stringify(updated));
+    fetch('/api/bookings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newBooking)
+    }).catch(e => console.warn('Sync booking error:', e));
   };
 
   const handleOpenBookingModal = (serviceName?: string) => {
@@ -407,12 +449,30 @@ export default function App() {
           setReels(r);
           try {
             localStorage.setItem('rachy_reels_v5', JSON.stringify(r));
+            const token = sessionStorage.getItem('rachy_admin_token');
+            fetch('/api/reels', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { Authorization: `Bearer ${token}` } : {})
+              },
+              body: JSON.stringify(r)
+            }).catch(e => console.warn('Sync reels warning:', e));
           } catch {}
         }}
         onUpdateServices={(s) => {
           setServices(s);
           try {
             localStorage.setItem('rachy_services_v1', JSON.stringify(s));
+            const token = sessionStorage.getItem('rachy_admin_token');
+            fetch('/api/services', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { Authorization: `Bearer ${token}` } : {})
+              },
+              body: JSON.stringify(s)
+            }).catch(e => console.warn('Sync services warning:', e));
           } catch {}
         }}
       />

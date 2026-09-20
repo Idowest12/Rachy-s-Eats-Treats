@@ -7,7 +7,9 @@ import { v2 as cloudinary } from 'cloudinary';
 import { createServer as createViteServer } from 'vite';
 import { STARTER_PACKAGES } from './src/data/starterPackages.ts';
 import { STARTER_SERVICES } from './src/data/starterServices.ts';
-import { Package, SiteSettings, ServiceCategoryCard } from './src/types.ts';
+import { STARTER_REELS } from './src/data/starterReels.ts';
+import { Package, SiteSettings, ServiceCategoryCard, ReelItem, BookingOrder } from './src/types.ts';
+import { getSupabase } from './src/lib/supabase.ts';
 
 const app = express();
 const PORT = 3000;
@@ -45,6 +47,8 @@ const DATA_DIR = path.join(process.cwd(), 'data');
 const PACKAGES_FILE = path.join(DATA_DIR, 'packages.json');
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 const SERVICES_FILE = path.join(DATA_DIR, 'services.json');
+const REELS_FILE = path.join(DATA_DIR, 'reels.json');
+const BOOKINGS_FILE = path.join(DATA_DIR, 'bookings.json');
 const ANALYTICS_FILE = path.join(DATA_DIR, 'analytics.json');
 const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
 
@@ -198,26 +202,65 @@ function detectDevice(req: express.Request, explicitDevice?: string): 'mobile' |
   return 'desktop';
 }
 
-// Initialize packages store
-function loadPackages(): Package[] {
+// Supabase-first persistence with local file fallback
+function getLocalPackages(): Package[] {
   try {
     if (fs.existsSync(PACKAGES_FILE)) {
       const data = fs.readFileSync(PACKAGES_FILE, 'utf-8');
       return JSON.parse(data);
     }
   } catch (err) {
-    console.error('Error reading packages file, using starter packages:', err);
+    console.error('Error reading local packages file:', err);
   }
-  // Initialize with starter packages
-  savePackages(STARTER_PACKAGES);
   return STARTER_PACKAGES;
 }
 
-function savePackages(packages: Package[]): void {
+function saveLocalPackages(packages: Package[]): void {
   try {
     fs.writeFileSync(PACKAGES_FILE, JSON.stringify(packages, null, 2), 'utf-8');
   } catch (err) {
-    console.error('Error saving packages:', err);
+    console.error('Error saving local packages:', err);
+  }
+}
+
+async function loadPackages(): Promise<Package[]> {
+  const sb = getSupabase();
+  if (sb) {
+    try {
+      const { data, error } = await sb
+        .from('packages')
+        .select('*')
+        .order('sort_order', { ascending: true });
+
+      if (!error && Array.isArray(data)) {
+        if (data.length > 0) {
+          saveLocalPackages(data);
+          return data;
+        }
+        // If table exists but is empty, seed with starter packages
+        console.log('Supabase packages table is empty. Seeding starter packages...');
+        const { error: seedErr } = await sb.from('packages').insert(STARTER_PACKAGES);
+        if (!seedErr) {
+          saveLocalPackages(STARTER_PACKAGES);
+          return STARTER_PACKAGES;
+        }
+      }
+    } catch (err) {
+      console.warn('Supabase query failed, falling back to local storage:', err);
+    }
+  }
+  return getLocalPackages();
+}
+
+async function savePackages(packages: Package[]): Promise<void> {
+  saveLocalPackages(packages);
+  const sb = getSupabase();
+  if (sb) {
+    try {
+      await sb.from('packages').upsert(packages, { onConflict: 'id' });
+    } catch (err) {
+      console.warn('Supabase packages save warning:', err);
+    }
   }
 }
 
@@ -231,27 +274,67 @@ const DEFAULT_SETTINGS: SiteSettings = {
   phone_number: '07014995254'
 };
 
-function loadSettings(): SiteSettings {
+function getLocalSettings(): SiteSettings {
   try {
     if (fs.existsSync(SETTINGS_FILE)) {
       const data = fs.readFileSync(SETTINGS_FILE, 'utf-8');
       return { ...DEFAULT_SETTINGS, ...JSON.parse(data) };
     }
   } catch (err) {
-    console.error('Error reading settings file:', err);
+    console.error('Error reading local settings file:', err);
   }
   return DEFAULT_SETTINGS;
 }
 
-function saveSettings(settings: SiteSettings): void {
+function saveLocalSettings(settings: SiteSettings): void {
   try {
     fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2), 'utf-8');
   } catch (err) {
-    console.error('Error saving settings:', err);
+    console.error('Error saving local settings:', err);
   }
 }
 
-function loadServices(): ServiceCategoryCard[] {
+async function loadSettings(): Promise<SiteSettings> {
+  const sb = getSupabase();
+  if (sb) {
+    try {
+      const { data, error } = await sb
+        .from('site_settings')
+        .select('*')
+        .eq('id', 'default')
+        .maybeSingle();
+
+      if (!error && data) {
+        const merged = { ...DEFAULT_SETTINGS, ...data };
+        saveLocalSettings(merged);
+        return merged;
+      }
+      if (!error && !data) {
+        // Seed default settings row in Supabase
+        await sb.from('site_settings').upsert({ id: 'default', ...DEFAULT_SETTINGS });
+        saveLocalSettings(DEFAULT_SETTINGS);
+        return DEFAULT_SETTINGS;
+      }
+    } catch (err) {
+      console.warn('Supabase settings query failed, falling back to local storage:', err);
+    }
+  }
+  return getLocalSettings();
+}
+
+async function saveSettings(settings: SiteSettings): Promise<void> {
+  saveLocalSettings(settings);
+  const sb = getSupabase();
+  if (sb) {
+    try {
+      await sb.from('site_settings').upsert({ id: 'default', ...settings });
+    } catch (err) {
+      console.warn('Supabase settings save warning:', err);
+    }
+  }
+}
+
+function getLocalServices(): ServiceCategoryCard[] {
   try {
     if (fs.existsSync(SERVICES_FILE)) {
       const data = fs.readFileSync(SERVICES_FILE, 'utf-8');
@@ -259,17 +342,166 @@ function loadServices(): ServiceCategoryCard[] {
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
   } catch (err) {
-    console.error('Error reading services file:', err);
+    console.error('Error reading local services file:', err);
   }
-  saveServices(STARTER_SERVICES);
   return STARTER_SERVICES;
 }
 
-function saveServices(services: ServiceCategoryCard[]): void {
+function saveLocalServices(services: ServiceCategoryCard[]): void {
   try {
     fs.writeFileSync(SERVICES_FILE, JSON.stringify(services, null, 2), 'utf-8');
   } catch (err) {
-    console.error('Error saving services:', err);
+    console.error('Error saving local services:', err);
+  }
+}
+
+async function loadServices(): Promise<ServiceCategoryCard[]> {
+  const sb = getSupabase();
+  if (sb) {
+    try {
+      const { data, error } = await sb.from('services').select('*');
+      if (!error && Array.isArray(data)) {
+        if (data.length > 0) {
+          saveLocalServices(data);
+          return data;
+        }
+        // Seed services if table is empty
+        await sb.from('services').insert(STARTER_SERVICES);
+        saveLocalServices(STARTER_SERVICES);
+        return STARTER_SERVICES;
+      }
+    } catch (err) {
+      console.warn('Supabase services query failed, falling back to local storage:', err);
+    }
+  }
+  return getLocalServices();
+}
+
+async function saveServices(services: ServiceCategoryCard[]): Promise<void> {
+  saveLocalServices(services);
+  const sb = getSupabase();
+  if (sb) {
+    try {
+      await sb.from('services').upsert(services, { onConflict: 'id' });
+    } catch (err) {
+      console.warn('Supabase services save warning:', err);
+    }
+  }
+}
+
+// Reels persistence
+function getLocalReels(): ReelItem[] {
+  try {
+    if (fs.existsSync(REELS_FILE)) {
+      const data = fs.readFileSync(REELS_FILE, 'utf-8');
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (err) {
+    console.error('Error reading local reels file:', err);
+  }
+  return STARTER_REELS;
+}
+
+function saveLocalReels(reels: ReelItem[]): void {
+  try {
+    fs.writeFileSync(REELS_FILE, JSON.stringify(reels, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Error saving local reels:', err);
+  }
+}
+
+async function loadReels(): Promise<ReelItem[]> {
+  const sb = getSupabase();
+  if (sb) {
+    try {
+      const { data, error } = await sb.from('reels').select('*');
+      if (!error && Array.isArray(data)) {
+        if (data.length > 0) {
+          saveLocalReels(data);
+          return data;
+        }
+        await sb.from('reels').insert(STARTER_REELS);
+        saveLocalReels(STARTER_REELS);
+        return STARTER_REELS;
+      }
+    } catch (err) {
+      console.warn('Supabase reels query failed, falling back to local storage:', err);
+    }
+  }
+  return getLocalReels();
+}
+
+async function saveReels(reels: ReelItem[]): Promise<void> {
+  saveLocalReels(reels);
+  const sb = getSupabase();
+  if (sb) {
+    try {
+      await sb.from('reels').upsert(reels, { onConflict: 'id' });
+    } catch (err) {
+      console.warn('Supabase reels save warning:', err);
+    }
+  }
+}
+
+// Bookings persistence
+function getLocalBookings(): BookingOrder[] {
+  try {
+    if (fs.existsSync(BOOKINGS_FILE)) {
+      const data = fs.readFileSync(BOOKINGS_FILE, 'utf-8');
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (err) {
+    console.error('Error reading local bookings file:', err);
+  }
+  return [];
+}
+
+function saveLocalBookings(bookings: BookingOrder[]): void {
+  try {
+    fs.writeFileSync(BOOKINGS_FILE, JSON.stringify(bookings, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Error saving local bookings:', err);
+  }
+}
+
+async function loadBookings(): Promise<BookingOrder[]> {
+  const sb = getSupabase();
+  if (sb) {
+    try {
+      const { data, error } = await sb
+        .from('bookings')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (!error && Array.isArray(data)) {
+        saveLocalBookings(data);
+        return data;
+      }
+    } catch (err) {
+      console.warn('Supabase bookings query failed, falling back to local storage:', err);
+    }
+  }
+  return getLocalBookings();
+}
+
+async function saveBooking(booking: BookingOrder): Promise<void> {
+  const current = getLocalBookings();
+  const existingIdx = current.findIndex(b => b.id === booking.id);
+  if (existingIdx >= 0) {
+    current[existingIdx] = booking;
+  } else {
+    current.unshift(booking);
+  }
+  saveLocalBookings(current);
+
+  const sb = getSupabase();
+  if (sb) {
+    try {
+      await sb.from('bookings').upsert(booking, { onConflict: 'id' });
+    } catch (err) {
+      console.warn('Supabase booking save warning:', err);
+    }
   }
 }
 
@@ -521,9 +753,9 @@ app.get('/api/instagram-thumbnail', async (req, res) => {
 });
 
 // Packages endpoints
-app.get('/api/packages', (req, res) => {
+app.get('/api/packages', async (req, res) => {
   try {
-    const packages = loadPackages();
+    const packages = await loadPackages();
     // Sort by category then sort_order ascending
     const sorted = [...packages].sort((a, b) => {
       if (a.category !== b.category) {
@@ -537,7 +769,7 @@ app.get('/api/packages', (req, res) => {
   }
 });
 
-app.post('/api/packages', requireAdmin, (req, res) => {
+app.post('/api/packages', requireAdmin, async (req, res) => {
   try {
     const { category, title, price, image_url, description, sort_order } = req.body;
 
@@ -545,7 +777,7 @@ app.post('/api/packages', requireAdmin, (req, res) => {
       return res.status(400).json({ error: 'Category, title, price, and image URL are required' });
     }
 
-    const packages = loadPackages();
+    const packages = await loadPackages();
     const newId = packages.length > 0 ? Math.max(...packages.map(p => p.id)) + 1 : 1;
 
     const newPackage: Package = {
@@ -559,8 +791,17 @@ app.post('/api/packages', requireAdmin, (req, res) => {
       created_at: new Date().toISOString()
     };
 
+    const sb = getSupabase();
+    if (sb) {
+      try {
+        await sb.from('packages').insert(newPackage);
+      } catch (err) {
+        console.warn('Supabase insert package warning:', err);
+      }
+    }
+
     packages.push(newPackage);
-    savePackages(packages);
+    saveLocalPackages(packages);
 
     return res.status(201).json(newPackage);
   } catch (err: any) {
@@ -568,12 +809,12 @@ app.post('/api/packages', requireAdmin, (req, res) => {
   }
 });
 
-app.put('/api/packages/:id', requireAdmin, (req, res) => {
+app.put('/api/packages/:id', requireAdmin, async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ error: 'Invalid package ID' });
 
-    const packages = loadPackages();
+    const packages = await loadPackages();
     const index = packages.findIndex(p => p.id === id);
     if (index === -1) {
       return res.status(404).json({ error: 'Package not found' });
@@ -581,7 +822,7 @@ app.put('/api/packages/:id', requireAdmin, (req, res) => {
 
     const { category, title, price, image_url, description, sort_order } = req.body;
 
-    packages[index] = {
+    const updatedPackage: Package = {
       ...packages[index],
       category: category !== undefined ? category.trim() : packages[index].category,
       title: title !== undefined ? title.trim() : packages[index].title,
@@ -591,35 +832,54 @@ app.put('/api/packages/:id', requireAdmin, (req, res) => {
       sort_order: typeof sort_order === 'number' ? sort_order : packages[index].sort_order
     };
 
-    savePackages(packages);
+    const sb = getSupabase();
+    if (sb) {
+      try {
+        await sb.from('packages').update(updatedPackage).eq('id', id);
+      } catch (err) {
+        console.warn('Supabase update package warning:', err);
+      }
+    }
+
+    packages[index] = updatedPackage;
+    saveLocalPackages(packages);
     return res.json(packages[index]);
   } catch (err: any) {
     return res.status(500).json({ error: err.message || 'Failed to update package' });
   }
 });
 
-app.delete('/api/packages/:id', requireAdmin, (req, res) => {
+app.delete('/api/packages/:id', requireAdmin, async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ error: 'Invalid package ID' });
 
-    let packages = loadPackages();
+    let packages = await loadPackages();
     const existing = packages.find(p => p.id === id);
     if (!existing) {
       return res.status(404).json({ error: 'Package not found' });
     }
 
+    const sb = getSupabase();
+    if (sb) {
+      try {
+        await sb.from('packages').delete().eq('id', id);
+      } catch (err) {
+        console.warn('Supabase delete package warning:', err);
+      }
+    }
+
     packages = packages.filter(p => p.id !== id);
-    savePackages(packages);
+    saveLocalPackages(packages);
     return res.json({ success: true, message: `Package "${existing.title}" deleted` });
   } catch (err: any) {
     return res.status(500).json({ error: err.message || 'Failed to delete package' });
   }
 });
 
-app.post('/api/packages/reset', requireAdmin, (req, res) => {
+app.post('/api/packages/reset', requireAdmin, async (req, res) => {
   try {
-    savePackages(STARTER_PACKAGES);
+    await savePackages(STARTER_PACKAGES);
     return res.json({ success: true, message: 'Reset packages to starter catalogue', packages: STARTER_PACKAGES });
   } catch (err: any) {
     return res.status(500).json({ error: err.message || 'Failed to reset packages' });
@@ -627,13 +887,13 @@ app.post('/api/packages/reset', requireAdmin, (req, res) => {
 });
 
 // Settings endpoints
-app.get('/api/settings', (req, res) => {
-  res.json(loadSettings());
+app.get('/api/settings', async (req, res) => {
+  res.json(await loadSettings());
 });
 
-app.post('/api/settings', requireAdmin, (req, res) => {
+app.post('/api/settings', requireAdmin, async (req, res) => {
   try {
-    const current = loadSettings();
+    const current = await loadSettings();
     const updated: SiteSettings = {
       ...current,
       whatsapp_number: req.body.whatsapp_number ? req.body.whatsapp_number.trim() : current.whatsapp_number,
@@ -646,7 +906,7 @@ app.post('/api/settings', requireAdmin, (req, res) => {
       hero_subtitle: req.body.hero_subtitle !== undefined ? req.body.hero_subtitle.trim() : current.hero_subtitle,
       hero_image_url: req.body.hero_image_url !== undefined ? req.body.hero_image_url.trim() : current.hero_image_url,
     };
-    saveSettings(updated);
+    await saveSettings(updated);
     return res.json(updated);
   } catch (err: any) {
     return res.status(500).json({ error: err.message || 'Failed to update settings' });
@@ -654,19 +914,146 @@ app.post('/api/settings', requireAdmin, (req, res) => {
 });
 
 // Services Showcase endpoints
-app.get('/api/services', (req, res) => {
-  res.json(loadServices());
+app.get('/api/services', async (req, res) => {
+  res.json(await loadServices());
 });
 
-app.post('/api/services', requireAdmin, (req, res) => {
+app.post('/api/services', requireAdmin, async (req, res) => {
   try {
     if (Array.isArray(req.body)) {
-      saveServices(req.body);
+      await saveServices(req.body);
       return res.json(req.body);
     }
     return res.status(400).json({ error: 'Expected an array of service cards' });
   } catch (err: any) {
     return res.status(500).json({ error: err.message || 'Failed to save services' });
+  }
+});
+
+// Reels Showcase endpoints
+app.get('/api/reels', async (req, res) => {
+  res.json(await loadReels());
+});
+
+app.post('/api/reels', requireAdmin, async (req, res) => {
+  try {
+    if (Array.isArray(req.body)) {
+      await saveReels(req.body);
+      return res.json(req.body);
+    }
+    return res.status(400).json({ error: 'Expected an array of reels' });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to save reels' });
+  }
+});
+
+// Bookings endpoints
+app.get('/api/bookings', requireAdmin, async (req, res) => {
+  try {
+    res.json(await loadBookings());
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to load bookings' });
+  }
+});
+
+app.post('/api/bookings', async (req, res) => {
+  try {
+    const bookingData = req.body;
+    if (!bookingData.customer_name || !bookingData.customer_phone) {
+      return res.status(400).json({ error: 'Customer name and phone are required' });
+    }
+    const newBooking: BookingOrder = {
+      ...bookingData,
+      id: bookingData.id || `ord_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      created_at: bookingData.created_at || new Date().toISOString(),
+      status: bookingData.status || 'pending'
+    };
+    await saveBooking(newBooking);
+    return res.status(201).json(newBooking);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to record booking' });
+  }
+});
+
+app.put('/api/bookings/:id/status', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const bookings = await loadBookings();
+    const target = bookings.find(b => b.id === id);
+    if (!target) return res.status(404).json({ error: 'Booking not found' });
+    target.status = status;
+    await saveBooking(target);
+    return res.json(target);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to update booking status' });
+  }
+});
+
+// Database & Supabase connection status check
+app.get('/api/database/status', async (req, res) => {
+  const sb = getSupabase();
+  const url = process.env.SUPABASE_URL || 'https://wydjticoyawzdkvykekd.supabase.co';
+
+  if (!sb) {
+    return res.json({
+      connected: false,
+      provider: 'local',
+      url,
+      tables: {
+        packages: false,
+        services: false,
+        settings: false,
+        bookings: false,
+        reels: false
+      },
+      message: 'Supabase client not initialized. Using local disk JSON persistence.'
+    });
+  }
+
+  // Check tables presence
+  const tableChecks: Record<string, boolean> = {
+    packages: false,
+    services: false,
+    settings: false,
+    bookings: false,
+    reels: false
+  };
+
+  try {
+    const [pkgRes, srvRes, setRes, bkgRes, relRes] = await Promise.all([
+      sb.from('packages').select('id').limit(1),
+      sb.from('services').select('id').limit(1),
+      sb.from('site_settings').select('id').limit(1),
+      sb.from('bookings').select('id').limit(1),
+      sb.from('reels').select('id').limit(1)
+    ]);
+
+    tableChecks.packages = !pkgRes.error;
+    tableChecks.services = !srvRes.error;
+    tableChecks.settings = !setRes.error;
+    tableChecks.bookings = !bkgRes.error;
+    tableChecks.reels = !relRes.error;
+
+    const allConnected = Object.values(tableChecks).every(Boolean);
+
+    return res.json({
+      connected: allConnected,
+      provider: 'supabase',
+      url,
+      tables: tableChecks,
+      message: allConnected
+        ? 'Supabase PostgreSQL connected and all tables are live and synced!'
+        : 'Connected to Supabase project, but one or more tables need to be created in the SQL Editor.'
+    });
+  } catch (err: any) {
+    return res.json({
+      connected: false,
+      provider: 'local',
+      url,
+      tables: tableChecks,
+      message: `Error connecting to Supabase: ${err.message}`
+    });
   }
 });
 
