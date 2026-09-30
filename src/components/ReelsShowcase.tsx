@@ -15,9 +15,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Maximize2,
-  MessageCircle,
   Sparkles
 } from 'lucide-react';
+import { WhatsAppIcon } from './WhatsAppIcon.tsx';
 import { ReelItem, SiteSettings } from '../types.ts';
 import { trackOutreach } from '../utils/analytics.ts';
 import {
@@ -421,7 +421,7 @@ export const ReelsShowcase: React.FC<ReelsShowcaseProps> = ({
                       className="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md transition-colors"
                       title="Inquire about this surprise on WhatsApp"
                     >
-                      <MessageCircle className="w-3.5 h-3.5" />
+                      <WhatsAppIcon className="w-4 h-4 rounded-xs" />
                       <span>Book Setup</span>
                     </a>
 

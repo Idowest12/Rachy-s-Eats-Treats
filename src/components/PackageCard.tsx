@@ -30,6 +30,9 @@ export const PackageCard: React.FC<PackageCardProps> = ({ pkg, settings }) => {
           src={pkg.image_url}
           alt={pkg.title}
           loading="lazy"
+          decoding="async"
+          width="400"
+          height="300"
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-103"
           onError={(e) => {
             (e.target as HTMLImageElement).src =
@@ -56,7 +59,7 @@ export const PackageCard: React.FC<PackageCardProps> = ({ pkg, settings }) => {
           target="_blank"
           rel="noopener noreferrer"
           onClick={() => trackOutreach('whatsapp', pkg.title, pkg.id)}
-          className="w-full py-2.5 sm:py-3 px-4 rounded-xl text-xs sm:text-sm font-bold text-white bg-[var(--pink)] hover:bg-[var(--pink-hover)] active:scale-[0.98] transition-all text-center shadow-md cursor-pointer block"
+          className="w-full py-2.5 sm:py-3 px-4 rounded-xl text-xs sm:text-sm font-bold text-white bg-[var(--pink)] hover:bg-[var(--pink-hover)] active:scale-[0.98] transition-all text-center shadow-md cursor-pointer block focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-hidden"
         >
           {buttonText}
         </a>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Phone, Mail, MapPin, Clock, Send, CheckCircle, MessageCircle } from 'lucide-react';
+import { WhatsAppIcon } from './WhatsAppIcon.tsx';
 import { SiteSettings } from '../types.ts';
 import { trackOutreach } from '../utils/analytics.ts';
 
@@ -24,6 +25,8 @@ export const ContactSection: React.FC<ContactSectionProps> = ({
   const [locationAddress, setLocationAddress] = useState('');
   const [additionalDetails, setAdditionalDetails] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [isThrottled, setIsThrottled] = useState(false);
+  const [throttleError, setThrottleError] = useState<string | null>(null);
 
   useEffect(() => {
     if (selectedService) {
@@ -35,6 +38,17 @@ export const ContactSection: React.FC<ContactSectionProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Client-side spam throttle (prevents double submits within 10 seconds)
+    const lastSubmit = sessionStorage.getItem('rachy_last_inquiry_ts');
+    const now = Date.now();
+    if (lastSubmit && now - parseInt(lastSubmit, 10) < 10000) {
+      setThrottleError('Please wait a few seconds before submitting another inquiry.');
+      return;
+    }
+    sessionStorage.setItem('rachy_last_inquiry_ts', now.toString());
+    setThrottleError(null);
+    setIsThrottled(true);
     setSubmitted(true);
     trackOutreach('whatsapp', `Contact Form: ${typeOfSurprise}`);
 
@@ -64,15 +78,15 @@ export const ContactSection: React.FC<ContactSectionProps> = ({
       body: JSON.stringify(newLead)
     }).catch(() => {});
 
-    // Format WhatsApp message
-    const message = `*NEW SURPRISE INQUIRY - RACHY'S EATS & TREATS* 🎉\n\n` +
-      `👤 *Client Name:* ${name}\n` +
-      `📞 *Phone:* ${phone}\n` +
-      `✉️ *Email:* ${email || 'Not provided'}\n` +
-      `🎁 *Type of Surprise:* ${typeOfSurprise}\n` +
-      `📅 *Day of Event:* ${dayOfEvent || 'Flexible'}\n` +
-      `📍 *Location / Address:* ${locationAddress || 'To be confirmed'}, ${city ? `${city}, ` : ''}${state}\n` +
-      (additionalDetails ? `📝 *Additional Details:* ${additionalDetails}\n` : '') +
+    // Format WhatsApp message without emojis
+    const message = `*NEW SURPRISE INQUIRY - RACHY'S EATS & TREATS*\n\n` +
+      `*Client Name:* ${name}\n` +
+      `*Phone:* ${phone}\n` +
+      `*Email:* ${email || 'Not provided'}\n` +
+      `*Type of Surprise:* ${typeOfSurprise}\n` +
+      `*Day of Event:* ${dayOfEvent || 'Flexible'}\n` +
+      `*Location / Address:* ${locationAddress || 'To be confirmed'}, ${city ? `${city}, ` : ''}${state}\n` +
+      (additionalDetails ? `*Additional Details:* ${additionalDetails}\n` : '') +
       `\n_Sent via rachyeatstreats.com_`;
 
     const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
@@ -256,13 +270,21 @@ export const ContactSection: React.FC<ContactSectionProps> = ({
                   />
                 </div>
 
+                {/* Throttle spam error alert */}
+                {throttleError && (
+                  <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold">
+                    {throttleError}
+                  </div>
+                )}
+
                 {/* Submit button with Rachy's brand pink and curved edges */}
                 <button
                   type="submit"
-                  className="w-full py-3.5 rounded-full bg-[var(--pink)] hover:bg-[var(--pink-hover)] text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-md active:scale-[0.99] transition-all cursor-pointer"
+                  disabled={isThrottled}
+                  className="w-full py-3.5 rounded-full bg-[var(--pink)] hover:bg-[var(--pink-hover)] text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-md active:scale-[0.99] transition-all cursor-pointer disabled:opacity-50"
                 >
                   <Send className="w-4 h-4" />
-                  <span>Send Us a Message</span>
+                  <span>{isThrottled ? 'Processing...' : 'Send Us a Message'}</span>
                 </button>
               </form>
             )}
@@ -350,7 +372,7 @@ export const ContactSection: React.FC<ContactSectionProps> = ({
             {/* Direct WhatsApp Quick Chat Banner with soft pink theme */}
             <div className="mt-8 p-6 rounded-3xl bg-pink-50/80 border border-pink-200">
               <div className="flex items-center gap-3 mb-2">
-                <MessageCircle className="w-5 h-5 text-[var(--pink)]" />
+                <WhatsAppIcon className="w-5 h-5 rounded-xs" />
                 <h4 className="text-sm font-bold text-gray-900">
                   Instant WhatsApp Consultation
                 </h4>
@@ -364,7 +386,7 @@ export const ContactSection: React.FC<ContactSectionProps> = ({
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-bold transition-all shadow-xs"
               >
-                <MessageCircle className="w-4 h-4" />
+                <WhatsAppIcon className="w-4 h-4 rounded-xs" />
                 <span>Chat Directly on WhatsApp</span>
               </a>
             </div>

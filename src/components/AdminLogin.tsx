@@ -268,7 +268,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onBackTo
               </div>
             ) : attemptsRemaining === 1 ? (
               <p className="mt-2 text-[10px] text-amber-300/90 font-medium">
-                ⚠️ Final attempt warning: 1 more failure will lock access for 15 minutes.
+                Warning: 1 more failure will lock access for 15 minutes.
               </p>
             ) : null}
           </div>

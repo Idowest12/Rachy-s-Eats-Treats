@@ -508,7 +508,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const fetchDbStatus = async () => {
     setCheckingDb(true);
     try {
-      const res = await fetch('/api/database/status');
+      const res = await fetch('/api/database/status', {
+        headers: getAuthHeader()
+      });
       if (res.ok) {
         const data: DatabaseStatus = await res.json();
         setDbStatus(data);
@@ -1666,7 +1668,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   placeholder="Upload custom cover or leave blank to auto-fetch from Instagram"
                 />
                 <span className="text-[11px] text-gray-400 block mt-1">
-                  💡 Tip: You can upload your own cover photo directly, paste an image link, or leave it blank to auto-fetch the Instagram thumbnail.
+                  Tip: You can upload your own cover photo directly, paste an image link, or leave it blank to auto-fetch the Instagram thumbnail.
                 </span>
               </div>
 

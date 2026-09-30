@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Calendar, Clock, MapPin, Sparkles, MessageCircle, Heart, User, Check } from 'lucide-react';
+import { X, Calendar, Clock, MapPin, Sparkles, Heart, User, Check } from 'lucide-react';
+import { WhatsAppIcon } from './WhatsAppIcon.tsx';
 import { SiteSettings, BookingOrder } from '../types.ts';
 import { trackOutreach } from '../utils/analytics.ts';
 
@@ -36,11 +37,11 @@ const OCCASIONS = [
 ];
 
 const POPULAR_ADDONS = [
-  { id: 'sax', label: 'Live Saxophonist Serenade 🎷', price: '+₦35,000' },
-  { id: 'cake', label: 'Custom 4-inch Bento Cake 🎂', price: '+₦15,000' },
-  { id: 'bubble', label: 'Personalized Bubble Balloon 🎈', price: '+₦12,000' },
-  { id: 'photos', label: 'Printed Polaroid Memory Strip 📸', price: '+₦5,000' },
-  { id: 'sparklers', label: 'Celebration Handheld Sparklers ✨', price: '+₦4,000' }
+  { id: 'sax', label: 'Live Saxophonist Serenade', price: '+₦35,000' },
+  { id: 'cake', label: 'Custom 4-inch Bento Cake', price: '+₦15,000' },
+  { id: 'bubble', label: 'Personalized Bubble Balloon', price: '+₦12,000' },
+  { id: 'photos', label: 'Printed Polaroid Memory Strip', price: '+₦5,000' },
+  { id: 'sparklers', label: 'Celebration Handheld Sparklers', price: '+₦4,000' }
 ];
 
 export const BookingModal: React.FC<BookingModalProps> = ({
@@ -62,6 +63,24 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   const [specialNotes, setSpecialNotes] = useState('');
   const [budgetEstimate, setBudgetEstimate] = useState('₦45,000 - ₦80,000');
 
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const toggleAddon = (addonLabel: string) => {
@@ -76,6 +95,15 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     e.preventDefault();
 
     const cleanPhone = (settings?.whatsapp_number || '2347014995254').replace(/[^0-9]/g, '');
+
+    // Client-side spam throttle cooldown
+    const lastSubmit = sessionStorage.getItem('rachy_last_booking_ts');
+    const now = Date.now();
+    if (lastSubmit && now - parseInt(lastSubmit, 10) < 10000) {
+      alert('Your inquiry was just recorded. Please wait a moment before sending another request.');
+      return;
+    }
+    sessionStorage.setItem('rachy_last_booking_ts', now.toString());
 
     const bookingData: BookingOrder = {
       id: `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -99,21 +127,21 @@ export const BookingModal: React.FC<BookingModalProps> = ({
       onBookingSubmitted(bookingData);
     }
 
-    // Compose formatted WhatsApp message
+    // Compose formatted WhatsApp message without emojis
     const messageLines = [
-      `🎉 *NEW SURPRISE INQUIRY - RACHY'S EATS & TREATS*`,
+      `*NEW SURPRISE INQUIRY - RACHY'S EATS & TREATS*`,
       `-----------------------------------------`,
-      `👤 *Client Name:* ${clientName || 'N/A'}`,
-      `📞 *Client Phone:* ${clientPhone || 'N/A'}`,
-      `💝 *Celebrant / Recipient:* ${recipientName || 'N/A'}`,
-      `✨ *Occasion:* ${occasion}`,
-      `📅 *Date:* ${deliveryDate || 'Flexible'}`,
-      `⏰ *Preferred Time:* ${deliveryTime}`,
-      `📍 *Location in Lagos:* ${locationArea}`,
-      deliveryAddress ? `🏠 *Address:* ${deliveryAddress}` : null,
-      selectedAddons.length > 0 ? `🎷 *Requested Add-ons:* ${selectedAddons.join(', ')}` : null,
-      `💰 *Budget Range:* ${budgetEstimate}`,
-      specialNotes ? `📝 *Special Notes:* ${specialNotes}` : null,
+      `*Client Name:* ${clientName || 'N/A'}`,
+      `*Client Phone:* ${clientPhone || 'N/A'}`,
+      `*Celebrant / Recipient:* ${recipientName || 'N/A'}`,
+      `*Occasion:* ${occasion}`,
+      `*Date:* ${deliveryDate || 'Flexible'}`,
+      `*Preferred Time:* ${deliveryTime}`,
+      `*Location in Lagos:* ${locationArea}`,
+      deliveryAddress ? `*Address:* ${deliveryAddress}` : null,
+      selectedAddons.length > 0 ? `*Requested Add-ons:* ${selectedAddons.join(', ')}` : null,
+      `*Budget Range:* ${budgetEstimate}`,
+      specialNotes ? `*Special Notes:* ${specialNotes}` : null,
       `-----------------------------------------`,
       `_Sent from Rachy's Website Booking System_`
     ].filter(Boolean);
@@ -127,7 +155,12 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="booking-modal-title"
+    >
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -141,7 +174,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
               <Sparkles className="w-3.5 h-3.5" />
               <span>Step-by-Step Curation</span>
             </div>
-            <h3 className="font-serif font-bold text-2xl sm:text-3xl text-[var(--cream)] leading-tight">
+            <h3 id="booking-modal-title" className="font-serif font-bold text-2xl sm:text-3xl text-[var(--cream)] leading-tight">
               Curate a Special Surprise
             </h3>
             <p className="text-xs sm:text-sm text-[var(--muted)] mt-1">
@@ -364,7 +397,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
               type="submit"
               className="w-full py-4 rounded-2xl bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold text-sm sm:text-base flex items-center justify-center gap-2.5 shadow-lg shadow-[#25D366]/20 active:scale-[0.98] transition-all cursor-pointer"
             >
-              <MessageCircle className="w-5 h-5 fill-white/20" />
+              <WhatsAppIcon className="w-5 h-5 rounded-xs" />
               <span>Continue to WhatsApp Booking →</span>
             </button>
             <p className="text-center text-[11px] text-[var(--muted)] mt-2">

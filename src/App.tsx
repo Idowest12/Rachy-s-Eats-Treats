@@ -8,7 +8,6 @@ import { Package, SiteSettings, BookingOrder, ReelItem, ServiceCategoryCard } fr
 import { Navbar } from './components/Navbar.tsx';
 import { Hero } from './components/Hero.tsx';
 import { ServicesShowcase } from './components/ServicesShowcase.tsx';
-import { ReelsShowcase } from './components/ReelsShowcase.tsx';
 import { PackageSection } from './components/PackageSection.tsx';
 import { PackageModal } from './components/PackageModal.tsx';
 import { BookingModal } from './components/BookingModal.tsx';
@@ -17,8 +16,10 @@ import { ContactSection } from './components/ContactSection.tsx';
 import { TrustBanner } from './components/TrustBanner.tsx';
 import { StatsCounter } from './components/StatsCounter.tsx';
 import { Footer } from './components/Footer.tsx';
-import { AdminLogin } from './components/AdminLogin.tsx';
-import { AdminDashboard } from './components/AdminDashboard.tsx';
+import { PackageSkeleton } from './components/PackageSkeleton.tsx';
+import { TestimonialsSection } from './components/TestimonialsSection.tsx';
+import { NotFoundPage } from './components/NotFoundPage.tsx';
+import { WhatsAppIcon } from './components/WhatsAppIcon.tsx';
 import { MessageCircle, Sparkles, Filter, Gift } from 'lucide-react';
 import { STARTER_PACKAGES } from './data/starterPackages.ts';
 import { STARTER_BOOKINGS } from './data/starterBookings.ts';
@@ -26,7 +27,15 @@ import { STARTER_REELS } from './data/starterReels.ts';
 import { STARTER_SERVICES } from './data/starterServices.ts';
 import { trackVisit, trackOutreach } from './utils/analytics.ts';
 
-type ViewMode = 'public' | 'admin-login' | 'admin-dashboard';
+// Public multimedia showcase
+const ReelsShowcase = React.lazy(() => import('./components/ReelsShowcase.tsx').then((m) => ({ default: m.ReelsShowcase })));
+
+// Production Gateway: Admin suite is loaded via an isolated dynamic gateway only when enabled by build configuration
+const AdminGateway = __ENABLE_ADMIN_GATEWAY__
+  ? React.lazy(() => import('./admin/AdminGateway.tsx'))
+  : null;
+
+type ViewMode = 'public' | 'admin-login' | 'admin-dashboard' | 'not-found';
 
 const DEFAULT_SITE_SETTINGS: SiteSettings = {
   whatsapp_number: '2347014995254',
@@ -117,35 +126,61 @@ export default function App() {
   });
 
   const [activeCategory, setActiveCategory] = useState<string>('Surprises');
+  const [isFiltering, setIsFiltering] = useState<boolean>(false);
   const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState<boolean>(false);
   const [preselectedService, setPreselectedService] = useState<string | undefined>(undefined);
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
 
   // Sync URL routing
   useEffect(() => {
     const handleLocationChange = () => {
-      const path = window.location.pathname;
-      const hash = window.location.hash;
-      const search = window.location.search;
+      const path = window.location.pathname.toLowerCase();
+      const hash = window.location.hash.toLowerCase();
+      const search = window.location.search.toLowerCase();
+
+      // Secret Admin Access via ?key=rachy or ?portal=manage or /secret-portal or standard /admin
       const isAdminRoute =
         path.startsWith('/admin') ||
+        path.startsWith('/secret-portal') ||
+        path.startsWith('/ops') ||
         hash === '#admin' ||
         hash === '#/admin' ||
+        hash === '#secret-portal' ||
+        search.includes('key=rachy') ||
+        search.includes('portal=manage') ||
         search.includes('admin');
 
       if (isAdminRoute) {
+        // If Admin Gateway is disabled at build time, completely block admin access and send to not-found
+        if (!__ENABLE_ADMIN_GATEWAY__ || !AdminGateway) {
+          setViewMode('not-found');
+          return;
+        }
+
         const token = sessionStorage.getItem('rachy_admin_token');
         if (token) {
           setViewMode('admin-dashboard');
         } else {
           setViewMode('admin-login');
         }
-      } else {
-        setViewMode('public');
-        trackVisit();
+        return;
       }
+
+      // Check if user navigated to a non-existent subpath (e.g. /random-page or unknown URLs)
+      const isKnownPublicPath =
+        path === '/' ||
+        path === '' ||
+        path === '/index.html' ||
+        path.startsWith('/#');
+
+      if (!isKnownPublicPath) {
+        setViewMode('not-found');
+        return;
+      }
+
+      setViewMode('public');
+      trackVisit();
     };
 
     handleLocationChange();
@@ -272,32 +307,10 @@ export default function App() {
     }
   };
 
-  const checkAuthStatus = async () => {
-    try {
-      const token = sessionStorage.getItem('rachy_admin_token');
-      if (!token) {
-        setIsAdminLoggedIn(false);
-        return;
-      }
-      const headers = { Authorization: `Bearer ${token}` };
-      const res = await fetch('/api/auth/status', { headers });
-      const contentType = res.headers.get('content-type') || '';
-      if (res.ok && contentType.includes('application/json')) {
-        const data = await res.json();
-        setIsAdminLoggedIn(Boolean(data.authenticated));
-      } else {
-        setIsAdminLoggedIn(true);
-      }
-    } catch (err) {
-      const token = sessionStorage.getItem('rachy_admin_token');
-      setIsAdminLoggedIn(Boolean(token));
-    }
-  };
-
   useEffect(() => {
     const init = async () => {
       setLoading(true);
-      await Promise.all([fetchPackages(), fetchSettings(), fetchServices(), fetchReels(), fetchBookings(), checkAuthStatus()]);
+      await Promise.all([fetchPackages(), fetchSettings(), fetchServices(), fetchReels(), fetchBookings()]);
       setLoading(false);
     };
     init();
@@ -350,15 +363,23 @@ export default function App() {
   }, [packages]);
 
   const handleSelectCategory = (cat: string) => {
+    if (cat === activeCategory) {
+      const catalogueEl = document.getElementById('catalogue');
+      if (catalogueEl) catalogueEl.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+    setIsFiltering(true);
     setActiveCategory(cat);
     setTimeout(() => {
       const catalogueEl = document.getElementById('catalogue');
       if (catalogueEl) catalogueEl.scrollIntoView({ behavior: 'smooth' });
     }, 40);
+    setTimeout(() => {
+      setIsFiltering(false);
+    }, 260);
   };
 
   const handleLoginSuccess = () => {
-    setIsAdminLoggedIn(true);
     navigateTo('admin-dashboard', '/admin/dashboard');
   };
 
@@ -369,7 +390,6 @@ export default function App() {
       console.error('Logout error:', err);
     }
     sessionStorage.removeItem('rachy_admin_token');
-    setIsAdminLoggedIn(false);
     navigateTo('public', '/');
   };
 
@@ -423,58 +443,78 @@ export default function App() {
   };
 
   // Views Router
-  if (viewMode === 'admin-login') {
+  if (viewMode === 'admin-login' || viewMode === 'admin-dashboard') {
+    if (!__ENABLE_ADMIN_GATEWAY__ || !AdminGateway) {
+      return (
+        <NotFoundPage
+          onBackToHome={() => navigateTo('public', '/')}
+          settings={settings}
+        />
+      );
+    }
+
     return (
-      <AdminLogin
-        onLoginSuccess={handleLoginSuccess}
-        onBackToSite={() => navigateTo('public', '/')}
-      />
+      <React.Suspense
+        fallback={
+          <div className="min-h-screen bg-stone-950 flex flex-col items-center justify-center text-stone-300">
+            <div className="w-8 h-8 border-2 border-[var(--pink)] border-t-transparent rounded-full animate-spin mb-3" />
+            <p className="text-xs font-medium">Securing administrative session...</p>
+          </div>
+        }
+      >
+        <AdminGateway
+          viewMode={viewMode}
+          packages={packages}
+          settings={settings}
+          bookings={bookings}
+          reels={reels}
+          services={services}
+          onRefreshPackages={fetchPackages}
+          onUpdateSettings={handleUpdateSettings}
+          onLogout={handleLogout}
+          onBackToSite={() => navigateTo('public', '/')}
+          onUpdateBookings={(b) => setBookings(b)}
+          onUpdateReels={(r) => {
+            setReels(r);
+            try {
+              localStorage.setItem('rachy_reels_v5', JSON.stringify(r));
+              const token = sessionStorage.getItem('rachy_admin_token');
+              fetch('/api/reels', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(token ? { Authorization: `Bearer ${token}` } : {})
+                },
+                body: JSON.stringify(r)
+              }).catch(e => console.warn('Sync reels warning:', e));
+            } catch {}
+          }}
+          onUpdateServices={(s) => {
+            setServices(s);
+            try {
+              localStorage.setItem('rachy_services_v1', JSON.stringify(s));
+              const token = sessionStorage.getItem('rachy_admin_token');
+              fetch('/api/services', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(token ? { Authorization: `Bearer ${token}` } : {})
+                },
+                body: JSON.stringify(s)
+              }).catch(e => console.warn('Sync services warning:', e));
+            } catch {}
+          }}
+          onLoginSuccess={handleLoginSuccess}
+        />
+      </React.Suspense>
     );
   }
 
-  if (viewMode === 'admin-dashboard') {
+  if (viewMode === 'not-found') {
     return (
-      <AdminDashboard
-        packages={packages}
+      <NotFoundPage
+        onBackToHome={() => navigateTo('public', '/')}
         settings={settings}
-        bookings={bookings}
-        reels={reels}
-        services={services}
-        onRefreshPackages={fetchPackages}
-        onUpdateSettings={handleUpdateSettings}
-        onLogout={handleLogout}
-        onBackToSite={() => navigateTo('public', '/')}
-        onUpdateBookings={(b) => setBookings(b)}
-        onUpdateReels={(r) => {
-          setReels(r);
-          try {
-            localStorage.setItem('rachy_reels_v5', JSON.stringify(r));
-            const token = sessionStorage.getItem('rachy_admin_token');
-            fetch('/api/reels', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                ...(token ? { Authorization: `Bearer ${token}` } : {})
-              },
-              body: JSON.stringify(r)
-            }).catch(e => console.warn('Sync reels warning:', e));
-          } catch {}
-        }}
-        onUpdateServices={(s) => {
-          setServices(s);
-          try {
-            localStorage.setItem('rachy_services_v1', JSON.stringify(s));
-            const token = sessionStorage.getItem('rachy_admin_token');
-            fetch('/api/services', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                ...(token ? { Authorization: `Bearer ${token}` } : {})
-              },
-              body: JSON.stringify(s)
-            }).catch(e => console.warn('Sync services warning:', e));
-          } catch {}
-        }}
       />
     );
   }
@@ -487,10 +527,8 @@ export default function App() {
       <Navbar
         settings={settings}
         onOpenBooking={() => handleBookSurprise()}
-        onOpenAdmin={() => navigateTo('admin-login', '/admin')}
-        isAdminLoggedIn={isAdminLoggedIn}
         activeCategory={activeCategory}
-        onSelectCategory={(cat) => setActiveCategory(cat)}
+        onSelectCategory={(cat) => handleSelectCategory(cat)}
         categories={categories}
       />
 
@@ -516,7 +554,7 @@ export default function App() {
         services={services}
         activeCategory={activeCategory}
         onSelectSegmentCategory={(categoryKey) => {
-          setActiveCategory(categoryKey);
+          handleSelectCategory(categoryKey);
         }}
         packages={packages}
         onSelectPackage={(pkg) => setSelectedPackage(pkg)}
@@ -525,11 +563,24 @@ export default function App() {
       />
 
       {/* "See Us In Action" Instagram Reels Feed with In-Page Floating Player */}
-      <ReelsShowcase
-        reels={reels}
-        settings={settings}
-        instagramUrl={settings.instagram_url || `https://www.instagram.com/${settings.instagram_handle.replace('@', '')}`}
-      />
+      <React.Suspense
+        fallback={
+          <div className="py-14 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <div className="h-6 w-48 bg-stone-100 rounded-full mx-auto mb-4 animate-pulse" />
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="aspect-[9/16] bg-stone-100 rounded-2xl animate-pulse" />
+              ))}
+            </div>
+          </div>
+        }
+      >
+        <ReelsShowcase
+          reels={reels}
+          settings={settings}
+          instagramUrl={settings.instagram_url || `https://www.instagram.com/${settings.instagram_handle.replace('@', '')}`}
+        />
+      </React.Suspense>
 
       {/* Main Public Catalogue */}
       <main id="packages-section" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 scroll-mt-20">
@@ -557,7 +608,7 @@ export default function App() {
               <span className="text-gray-300">•</span>
               <button
                 type="button"
-                onClick={() => setActiveCategory('all')}
+                onClick={() => handleSelectCategory('all')}
                 className="text-[var(--pink)] hover:text-[var(--pink-hover)] font-semibold underline cursor-pointer"
               >
                 Reset to All Packages
@@ -566,17 +617,24 @@ export default function App() {
           )}
         </div>
 
-        {/* Filtered / Full Package Sections */}
-        {activeCategory === 'all' ? (
-          Object.keys(groupedPackages).map((cat) => (
-            <PackageSection
-              key={cat}
-              category={cat}
-              packages={groupedPackages[cat]}
-              settings={settings}
-              onViewDetails={(pkg) => setSelectedPackage(pkg)}
-            />
-          ))
+        {/* Filtered / Full Package Sections with Skeleton & Fade-In Animation */}
+        {loading || isFiltering ? (
+          <PackageSkeleton
+            count={activeCategory === 'all' ? 6 : 3}
+            categoryTitle={activeCategory === 'all' ? 'All Packages' : activeCategory}
+          />
+        ) : activeCategory === 'all' ? (
+          <div className="space-y-4 animate-in fade-in duration-300">
+            {Object.keys(groupedPackages).map((cat) => (
+              <PackageSection
+                key={cat}
+                category={cat}
+                packages={groupedPackages[cat]}
+                settings={settings}
+                onViewDetails={(pkg) => setSelectedPackage(pkg)}
+              />
+            ))}
+          </div>
         ) : (() => {
           const matchedKey =
             groupedPackages[activeCategory]
@@ -589,20 +647,22 @@ export default function App() {
 
           if (matchedKey && groupedPackages[matchedKey]) {
             return (
-              <PackageSection
-                category={matchedKey}
-                packages={groupedPackages[matchedKey]}
-                settings={settings}
-                onViewDetails={(pkg) => setSelectedPackage(pkg)}
-              />
+              <div key={matchedKey} className="animate-in fade-in duration-300">
+                <PackageSection
+                  category={matchedKey}
+                  packages={groupedPackages[matchedKey]}
+                  settings={settings}
+                  onViewDetails={(pkg) => setSelectedPackage(pkg)}
+                />
+              </div>
             );
           }
 
           return (
-            <div className="text-center py-16 text-gray-500">
+            <div className="text-center py-16 text-gray-500 animate-in fade-in duration-300">
               <p>No packages found in this category.</p>
               <button
-                onClick={() => setActiveCategory('all')}
+                onClick={() => handleSelectCategory('all')}
                 className="mt-4 px-5 py-2 rounded-full bg-[var(--pink)] text-white text-xs font-bold shadow-md cursor-pointer"
               >
                 Show All Packages
@@ -650,7 +710,7 @@ export default function App() {
               onClick={() => trackOutreach('whatsapp', 'Bottom CTA - Custom Surprise Consultation')}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-[#25D366] hover:bg-[#1ebe5d] text-white font-bold text-xs sm:text-sm transition-all shadow-md active:scale-95 cursor-pointer"
             >
-              <MessageCircle className="w-4 h-4 fill-white/20" />
+              <WhatsAppIcon className="w-5 h-5 rounded-xs" />
               <span>Talk on WhatsApp</span>
             </a>
           </div>
@@ -672,6 +732,9 @@ export default function App() {
         selectedService={preselectedService}
         onBookingSubmitted={handleCreateBooking}
       />
+
+      {/* Customer Reviews & Testimonials Carousel with Photo Proof */}
+      <TestimonialsSection />
 
       {/* Impact Numbers & Assurance */}
       <StatsCounter />
@@ -695,9 +758,24 @@ export default function App() {
       {/* Brand Footer */}
       <Footer
         settings={settings}
-        onOpenAdmin={() => navigateTo('admin-login', '/admin')}
         onOpenBooking={() => handleBookSurprise()}
       />
+
+      {/* Floating Instant WhatsApp Button (Highly visible on all mobile screens) */}
+      <a
+        id="floating-mobile-whatsapp-btn"
+        href={`https://wa.me/${settings.whatsapp_number.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+          "Hi Rachy! I saw your website and would love to plan a surprise package."
+        )}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={() => trackOutreach('whatsapp', 'Floating Mobile WhatsApp Button')}
+        className="fixed bottom-5 right-5 z-40 flex items-center gap-2 p-3 sm:px-4 sm:py-3 rounded-full bg-[#25D366] hover:bg-[#1ebe5d] text-white font-semibold text-xs sm:text-sm shadow-2xl active:scale-95 transition-all border-2 border-white cursor-pointer group"
+        aria-label="Direct WhatsApp Chat"
+      >
+        <WhatsAppIcon className="w-6 h-6 shrink-0" />
+        <span className="hidden sm:inline font-bold">Chat with Rachy</span>
+      </a>
     </div>
   );
 }

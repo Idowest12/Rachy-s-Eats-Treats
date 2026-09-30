@@ -1,16 +1,16 @@
 import React from 'react';
-import { Instagram, MessageCircle, Phone, Heart, Sparkles, MapPin } from 'lucide-react';
+import { Instagram, Phone, Heart, Sparkles, MapPin } from 'lucide-react';
+import { WhatsAppIcon } from './WhatsAppIcon.tsx';
 import { SiteSettings } from '../types.ts';
 import { RachyLogo } from './RachyLogo.tsx';
 import { trackOutreach } from '../utils/analytics.ts';
 
 interface FooterProps {
   settings: SiteSettings;
-  onOpenAdmin: () => void;
   onOpenBooking: () => void;
 }
 
-export const Footer: React.FC<FooterProps> = ({ settings, onOpenAdmin, onOpenBooking }) => {
+export const Footer: React.FC<FooterProps> = ({ settings, onOpenBooking }) => {
   const rawWhatsapp = settings?.whatsapp_number || '2347014995254';
   const cleanPhone = rawWhatsapp.replace(/[^0-9]/g, '');
   const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(
@@ -99,6 +99,11 @@ export const Footer: React.FC<FooterProps> = ({ settings, onOpenAdmin, onOpenBoo
             </h5>
             <ul className="space-y-2 text-xs">
               <li>
+                <a href="#reviews-section" className="hover:text-[var(--pink)] transition-colors">
+                  Customer Reviews &amp; Proof
+                </a>
+              </li>
+              <li>
                 <a href="#reels-section" className="hover:text-[var(--pink)] transition-colors">
                   See Us In Action (Reels)
                 </a>
@@ -148,7 +153,7 @@ export const Footer: React.FC<FooterProps> = ({ settings, onOpenAdmin, onOpenBoo
                 onClick={() => trackOutreach('whatsapp', 'Footer WhatsApp Link')}
                 className="flex items-center gap-2 text-gray-800 hover:text-[#15803d] transition-colors"
               >
-                <MessageCircle className="w-4 h-4 text-[#15803d] shrink-0" />
+                <WhatsAppIcon className="w-4 h-4 rounded-xs shrink-0" />
                 <span>+234 701 499 5254 (WhatsApp)</span>
               </a>
 
@@ -167,14 +172,10 @@ export const Footer: React.FC<FooterProps> = ({ settings, onOpenAdmin, onOpenBoo
         {/* Bottom Row */}
         <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-500">
           <p>© {new Date().getFullYear()} Rachy's Eats &amp; Treats. All rights reserved.</p>
-          
-          <div className="flex items-center gap-4">
-            <button
-              onClick={onOpenAdmin}
-              className="text-[11px] text-gray-500 hover:text-gray-900 transition-colors cursor-pointer"
-            >
-              Planner Admin Portal
-            </button>
+          <div className="flex items-center gap-4 text-[11px] text-gray-400">
+            <span>Handcrafted in Lagos, Nigeria</span>
+            <span>•</span>
+            <span>Stealth Surprises &amp; Luxury Gifts</span>
           </div>
         </div>
 

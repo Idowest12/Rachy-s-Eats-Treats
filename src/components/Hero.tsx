@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { ArrowRight, MessageCircle } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
+import { WhatsAppIcon } from './WhatsAppIcon.tsx';
 import { SiteSettings } from '../types.ts';
 import { trackOutreach } from '../utils/analytics.ts';
 
@@ -34,6 +35,10 @@ export const Hero: React.FC<HeroProps> = ({
         <img
           src={settings?.hero_image_url || "https://images.unsplash.com/photo-1513151233558-d860c5398176?q=80&w=1920&auto=format&fit=crop"}
           alt="Luxury surprise celebration decor"
+          decoding="async"
+          fetchPriority="high"
+          width="1920"
+          height="1080"
           className="w-full h-full object-cover object-center filter brightness-[0.45] contrast-[1.05]"
         />
         {/* Deep luxury vignette gradient scrim */}
@@ -104,10 +109,11 @@ export const Hero: React.FC<HeroProps> = ({
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => trackOutreach('whatsapp', 'Hero WhatsApp CTA')}
-              className="inline-flex items-center gap-2 px-5 py-3.5 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/20 font-medium text-sm sm:text-base transition-all active:scale-95"
+              className="inline-flex items-center gap-2 px-5 py-3.5 rounded-full bg-[#25D366] hover:bg-[#1ebe5d] text-white font-semibold text-sm sm:text-base transition-all active:scale-95 shadow-md shrink-0"
+              aria-label="Chat directly on WhatsApp"
             >
-              <MessageCircle className="w-4 h-4 text-[#4ade80]" />
-              <span className="hidden sm:inline">WhatsApp</span>
+              <WhatsAppIcon className="w-5 h-5 shrink-0" />
+              <span>WhatsApp</span>
             </a>
           </motion.div>
 

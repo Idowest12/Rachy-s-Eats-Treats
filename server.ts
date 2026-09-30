@@ -528,6 +528,17 @@ function verifyToken(token: string): boolean {
   }
 }
 
+// Security Headers & Hardening Middleware
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.removeHeader('X-Powered-By');
+  next();
+});
+
 // Middleware
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
@@ -637,7 +648,20 @@ app.post('/api/login', (req, res) => {
   }
 
   const { password } = req.body;
-  if (!password || password.trim() !== ADMIN_PASSWORD.trim()) {
+  const inputPwd = (typeof password === 'string' ? password.trim() : '');
+  const targetPwd = ADMIN_PASSWORD.trim();
+
+  // Timing-safe comparison to prevent side-channel password length & prefix leakage
+  let passwordsMatch = false;
+  try {
+    const inputBuf = crypto.createHash('sha256').update(inputPwd).digest();
+    const targetBuf = crypto.createHash('sha256').update(targetPwd).digest();
+    passwordsMatch = crypto.timingSafeEqual(inputBuf, targetBuf);
+  } catch {
+    passwordsMatch = false;
+  }
+
+  if (!passwordsMatch) {
     record.failedAttempts += 1;
 
     if (record.failedAttempts >= MAX_LOGIN_ATTEMPTS) {
@@ -755,6 +779,7 @@ app.get('/api/instagram-thumbnail', async (req, res) => {
 // Packages endpoints
 app.get('/api/packages', async (req, res) => {
   try {
+    res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
     const packages = await loadPackages();
     // Sort by category then sort_order ascending
     const sorted = [...packages].sort((a, b) => {
@@ -888,6 +913,7 @@ app.post('/api/packages/reset', requireAdmin, async (req, res) => {
 
 // Settings endpoints
 app.get('/api/settings', async (req, res) => {
+  res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
   res.json(await loadSettings());
 });
 
@@ -915,6 +941,7 @@ app.post('/api/settings', requireAdmin, async (req, res) => {
 
 // Services Showcase endpoints
 app.get('/api/services', async (req, res) => {
+  res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
   res.json(await loadServices());
 });
 
@@ -932,6 +959,7 @@ app.post('/api/services', requireAdmin, async (req, res) => {
 
 // Reels Showcase endpoints
 app.get('/api/reels', async (req, res) => {
+  res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
   res.json(await loadReels());
 });
 
@@ -956,17 +984,60 @@ app.get('/api/bookings', requireAdmin, async (req, res) => {
   }
 });
 
-app.post('/api/bookings', async (req, res) => {
+// Booking & Contact Submission Throttle / Anti-Spam protection
+const formSubmissionLog = new Map<string, number[]>();
+const FORM_THROTTLE_WINDOW_MS = 60 * 1000; // 1 minute
+const MAX_FORM_SUBMISSIONS_PER_MINUTE = 5; // max 5 submissions per minute per IP
+
+function throttleFormSubmissions(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const clientKey = getClientIdentifier(req);
+  const now = Date.now();
+  let timestamps = formSubmissionLog.get(clientKey) || [];
+
+  // Evict timestamps outside the window
+  timestamps = timestamps.filter(ts => now - ts < FORM_THROTTLE_WINDOW_MS);
+
+  if (timestamps.length >= MAX_FORM_SUBMISSIONS_PER_MINUTE) {
+    const oldest = timestamps[0];
+    const waitSeconds = Math.ceil((FORM_THROTTLE_WINDOW_MS - (now - oldest)) / 1000);
+    return res.status(429).json({
+      error: `Too many submissions from your connection. Please wait ${waitSeconds} seconds before submitting another inquiry.`,
+      retryAfter: waitSeconds
+    });
+  }
+
+  timestamps.push(now);
+  formSubmissionLog.set(clientKey, timestamps);
+  next();
+}
+
+app.post('/api/bookings', throttleFormSubmissions, async (req, res) => {
   try {
     const bookingData = req.body;
-    if (!bookingData.customer_name || !bookingData.customer_phone) {
-      return res.status(400).json({ error: 'Customer name and phone are required' });
+    // Accept either customer_name/customer_phone or client_name/client_phone or name/phone
+    const name = bookingData.customer_name || bookingData.client_name || bookingData.name;
+    const phone = bookingData.customer_phone || bookingData.client_phone || bookingData.phone;
+
+    if (!name || !phone) {
+      return res.status(400).json({ error: 'Customer name and phone number are required' });
     }
+
+    // Input sanitization and length bounds
+    if (typeof name !== 'string' || name.length > 150) {
+      return res.status(400).json({ error: 'Invalid name provided' });
+    }
+    if (typeof phone !== 'string' || phone.length > 50) {
+      return res.status(400).json({ error: 'Invalid phone provided' });
+    }
+
     const newBooking: BookingOrder = {
       ...bookingData,
       id: bookingData.id || `ord_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      client_name: String(name).trim().slice(0, 150),
+      client_phone: String(phone).trim().slice(0, 50),
+      recipient_name: bookingData.recipient_name ? String(bookingData.recipient_name).trim().slice(0, 150) : String(name).trim().slice(0, 150),
       created_at: bookingData.created_at || new Date().toISOString(),
-      status: bookingData.status || 'pending'
+      status: bookingData.status || 'Inquiry'
     };
     await saveBooking(newBooking);
     return res.status(201).json(newBooking);
@@ -990,8 +1061,8 @@ app.put('/api/bookings/:id/status', requireAdmin, async (req, res) => {
   }
 });
 
-// Database & Supabase connection status check
-app.get('/api/database/status', async (req, res) => {
+// Database & Supabase connection status check (Admin protected to prevent architecture disclosure)
+app.get('/api/database/status', requireAdmin, async (req, res) => {
   const sb = getSupabase();
   const url = process.env.SUPABASE_URL || 'https://wydjticoyawzdkvykekd.supabase.co';
 
@@ -1057,8 +1128,8 @@ app.get('/api/database/status', async (req, res) => {
   }
 });
 
-// Storage status check
-app.get('/api/storage/status', (req, res) => {
+// Storage status check (Admin protected)
+app.get('/api/storage/status', requireAdmin, (req, res) => {
   const configured = isCloudinaryConfigured();
   return res.json({
     provider: configured ? 'cloudinary' : 'local',

@@ -36,8 +36,10 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({
   const [storageStatus, setStorageStatus] = useState<StorageStatus | null>(null);
 
   useEffect(() => {
-    // Fetch storage provider info from server
-    fetch('/api/storage/status')
+    // Fetch storage provider info from server with auth header
+    fetch('/api/storage/status', {
+      headers: getAuthHeader ? getAuthHeader() : {}
+    })
       .then((res) => (res.ok ? res.json() : null))
       .then((data: StorageStatus | null) => {
         if (data) setStorageStatus(data);
@@ -45,7 +47,7 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({
       .catch(() => {
         // Silently keep default
       });
-  }, []);
+  }, [getAuthHeader]);
 
   const processFile = async (file: File) => {
     if (!file.type.startsWith('image/')) {

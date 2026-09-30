@@ -1,5 +1,6 @@
-import React from 'react';
-import { X, MessageCircle, Sparkles } from 'lucide-react';
+import React, { useEffect } from 'react';
+import { X, Sparkles } from 'lucide-react';
+import { WhatsAppIcon } from './WhatsAppIcon.tsx';
 import { Package, SiteSettings } from '../types.ts';
 import { trackOutreach } from '../utils/analytics.ts';
 
@@ -10,6 +11,24 @@ interface PackageModalProps {
 }
 
 export const PackageModal: React.FC<PackageModalProps> = ({ pkg, settings, onClose }) => {
+  useEffect(() => {
+    if (!pkg) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [pkg, onClose]);
+
   if (!pkg) return null;
 
   const cleanPhone = (settings?.whatsapp_number || '2347014995254').replace(/[^0-9]/g, '');
@@ -21,6 +40,9 @@ export const PackageModal: React.FC<PackageModalProps> = ({ pkg, settings, onClo
       id="package-modal-backdrop"
       className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-fadeIn"
       onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="package-modal-title"
     >
       <div
         id="package-modal-content"
@@ -31,7 +53,7 @@ export const PackageModal: React.FC<PackageModalProps> = ({ pkg, settings, onClo
         <button
           id="modal-close-btn"
           onClick={onClose}
-          className="absolute top-3.5 right-3.5 z-20 w-8 h-8 rounded-full bg-black/60 hover:bg-black text-white flex items-center justify-center transition-colors cursor-pointer"
+          className="absolute top-3.5 right-3.5 z-20 w-8 h-8 rounded-full bg-black/60 hover:bg-black text-white flex items-center justify-center transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-hidden"
           aria-label="Close modal"
         >
           <X className="w-4 h-4" />
@@ -42,6 +64,7 @@ export const PackageModal: React.FC<PackageModalProps> = ({ pkg, settings, onClo
           <img
             src={pkg.image_url}
             alt={pkg.title}
+            decoding="async"
             className="w-full h-full object-cover"
           />
           <div className="absolute top-3.5 left-3.5 z-10">
@@ -51,7 +74,7 @@ export const PackageModal: React.FC<PackageModalProps> = ({ pkg, settings, onClo
           </div>
         </div>
 
-        {/* Right: Clean Package Details (Fits seamlessly with NO nested on-screen display box) */}
+        {/* Right: Clean Package Details */}
         <div className="p-6 sm:p-8 md:w-1/2 flex flex-col justify-between bg-white">
           <div>
             {/* Price in Signature Pink */}
@@ -62,7 +85,7 @@ export const PackageModal: React.FC<PackageModalProps> = ({ pkg, settings, onClo
             </div>
 
             {/* Title in High-Contrast Crisp Black */}
-            <h2 className="font-serif font-bold text-xl sm:text-2xl text-gray-900 leading-snug mb-3">
+            <h2 id="package-modal-title" className="font-serif font-bold text-xl sm:text-2xl text-gray-900 leading-snug mb-3">
               {pkg.title}
             </h2>
 
@@ -93,7 +116,7 @@ export const PackageModal: React.FC<PackageModalProps> = ({ pkg, settings, onClo
               onClick={() => trackOutreach('whatsapp', pkg.title, pkg.id)}
               className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-xs sm:text-sm font-bold text-white bg-[var(--pink)] hover:bg-[var(--pink-hover)] active:scale-[0.98] transition-all shadow-md cursor-pointer"
             >
-              <MessageCircle className="w-4 h-4 fill-white/20" />
+              <WhatsAppIcon className="w-5 h-5 rounded-xs" />
               <span>Order on WhatsApp</span>
             </a>
 

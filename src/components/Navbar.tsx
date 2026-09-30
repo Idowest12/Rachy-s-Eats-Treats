@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { MessageCircle, Instagram, Sparkles, Lock, Menu, X, Phone, ChevronDown, Check } from 'lucide-react';
+import { Instagram, Sparkles, Menu, X, Phone, ChevronDown, Check } from 'lucide-react';
+import { WhatsAppIcon } from './WhatsAppIcon.tsx';
 import { SiteSettings } from '../types.ts';
 import { RachyLogo } from './RachyLogo.tsx';
 import { trackOutreach } from '../utils/analytics.ts';
@@ -7,26 +8,22 @@ import { trackOutreach } from '../utils/analytics.ts';
 interface NavbarProps {
   settings: SiteSettings;
   onOpenBooking: () => void;
-  onOpenAdmin: () => void;
-  isAdminLoggedIn: boolean;
   activeCategory?: string;
   onSelectCategory?: (category: string) => void;
   categories?: string[];
 }
 
 const DEFAULT_CATEGORIES = [
-  { id: 'all', label: 'All Packages', icon: '✨' },
-  { id: 'Surprises', label: 'Surprises', icon: '🎁' },
-  { id: 'Food tray', label: 'Food tray', icon: '🥞' },
-  { id: 'Money box', label: 'Money box', icon: '💸' },
-  { id: 'Hampers', label: 'Hampers', icon: '🧺' },
+  { id: 'all', label: 'All Packages' },
+  { id: 'Surprises', label: 'Surprises' },
+  { id: 'Food tray', label: 'Food tray' },
+  { id: 'Money box', label: 'Money box' },
+  { id: 'Hampers', label: 'Hampers' },
 ];
 
 export const Navbar: React.FC<NavbarProps> = ({
   settings,
   onOpenBooking,
-  onOpenAdmin,
-  isAdminLoggedIn,
   activeCategory = 'all',
   onSelectCategory,
   categories
@@ -38,15 +35,9 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const categoryItems = React.useMemo(() => {
     if (!categories || categories.length === 0) return DEFAULT_CATEGORIES;
-    const items = [{ id: 'all', label: 'All Packages', icon: '✨' }];
+    const items = [{ id: 'all', label: 'All Packages' }];
     categories.forEach((cat) => {
-      const lower = cat.toLowerCase();
-      const icon =
-        lower.includes('surprise') ? '🎁' :
-        lower.includes('food') || lower.includes('tray') ? '🥞' :
-        lower.includes('money') ? '💸' :
-        lower.includes('hamper') ? '🧺' : '🎀';
-      items.push({ id: cat, label: cat, icon });
+      items.push({ id: cat, label: cat });
     });
     return items;
   }, [categories]);
@@ -202,10 +193,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                             : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
                         }`}
                       >
-                        <span className="flex items-center gap-2">
-                          <span>{cat.icon}</span>
-                          <span>{cat.label}</span>
-                        </span>
+                        <span className="truncate">{cat.label}</span>
                         {isCatActive && <Check className="w-3.5 h-3.5 text-[var(--pink)] shrink-0" />}
                       </button>
                     );
@@ -213,6 +201,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
               )}
             </div>
+
+            <a
+              href="#reviews-section"
+              className="hover:text-[var(--pink)] transition-colors"
+            >
+              Reviews
+            </a>
 
             <a
               href="#contact-section"
@@ -240,18 +235,19 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="hidden xl:inline">@{settings?.instagram_handle ? settings.instagram_handle.replace('@', '') : 'rachys_eats_treats'}</span>
             </a>
 
-            {/* WhatsApp CTA */}
+            {/* WhatsApp CTA (Icon visible on mobile, icon + text on tablets/desktop) */}
             <a
               id="nav-whatsapp-link"
               href={whatsappUrl}
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => trackOutreach('whatsapp', 'Navbar WhatsApp CTA')}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold text-[#15803d] bg-green-50 hover:bg-green-100 transition-all border border-green-200 active:scale-95 shrink-0"
+              className="inline-flex items-center gap-1.5 p-2 sm:px-3 sm:py-1.5 rounded-full text-xs font-semibold text-gray-800 bg-white hover:bg-gray-50 transition-all border border-gray-200 active:scale-95 shrink-0 shadow-xs"
               title="Chat on WhatsApp"
+              aria-label="Chat on WhatsApp"
             >
-              <MessageCircle className="w-3.5 h-3.5 fill-current" />
-              <span>WhatsApp</span>
+              <WhatsAppIcon className="w-4 h-4 shrink-0" />
+              <span className="hidden sm:inline">WhatsApp</span>
             </a>
 
             {/* Book Now Button with Rachy's brand pink and curved edges */}
@@ -318,7 +314,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                           : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
                       }`}
                     >
-                      <span className="truncate">{cat.icon} {cat.label}</span>
+                      <span className="truncate">{cat.label}</span>
                       {isCatActive && <Check className="w-3.5 h-3.5 text-white shrink-0 ml-1" />}
                     </button>
                   );
@@ -339,6 +335,13 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="block text-sm font-semibold text-gray-800 py-1"
             >
               About Us
+            </a>
+            <a
+              href="#reviews-section"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block text-sm font-semibold text-gray-800 py-1"
+            >
+              Reviews &amp; Proof
             </a>
             <a
               href="#contact-section"
@@ -366,7 +369,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 rel="noopener noreferrer"
                 className="w-full py-2.5 rounded-xl bg-[#25D366] text-white text-xs font-bold flex items-center justify-center gap-2"
               >
-                <MessageCircle className="w-4 h-4 fill-white" />
+                <WhatsAppIcon className="w-4 h-4 rounded-xs" />
                 <span>WhatsApp Chat</span>
               </a>
             </div>

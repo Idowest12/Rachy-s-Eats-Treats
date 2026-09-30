@@ -8,7 +8,7 @@ export const STARTER_REELS: ReelItem[] = [
     video_url: '',
     thumbnail_url: '/reels/reel-1.jpg',
     instagram_url: 'https://www.instagram.com/reel/DcRzt9jo_AA/?stkn=emloeWp3aWo2YjFm',
-    caption: 'Two months ago, I delivered a surprise package for a girl’s graduation. The Uber driver loved what he saw and wanted something similar for his wife’s birthday. Fast forward to this week, he booked and we delivered pure happiness! ❤️✨',
+    caption: 'Two months ago, I delivered a surprise package for a girl’s graduation. The Uber driver loved what he saw and wanted something similar for his wife’s birthday. Fast forward to this week, he booked and we delivered pure happiness!',
     duration: 'Watch Reel'
   },
   {
@@ -28,7 +28,7 @@ export const STARTER_REELS: ReelItem[] = [
     video_url: '',
     thumbnail_url: '/reels/real_reaction_1.jpg',
     instagram_url: 'https://www.instagram.com/reel/DcRzt9jo_AA/?stkn=emloeWp3aWo2YjFm',
-    caption: 'Whatever you do, be good at it, be respectful, and treat people well. You never know where your next client will come from. Watch this heartwarming celebration reaction! 🥰🎉',
+    caption: 'Whatever you do, be good at it, be respectful, and treat people well. You never know where your next client will come from. Watch this heartwarming celebration reaction!',
     duration: 'Watch Reel'
   },
   {

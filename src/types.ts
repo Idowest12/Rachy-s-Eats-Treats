@@ -151,3 +151,16 @@ export interface DatabaseStatus {
   message: string;
 }
 
+export interface ReviewItem {
+  id: string;
+  client_name: string;
+  location: string;
+  rating: number;
+  occasion: string;
+  comment: string;
+  chat_screenshot?: string;
+  reaction_photo?: string;
+  date: string;
+  verified: boolean;
+}
+

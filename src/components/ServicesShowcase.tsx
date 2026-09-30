@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { ArrowRight, Sparkles, MessageCircle } from 'lucide-react';
+import { ArrowRight, Sparkles } from 'lucide-react';
+import { WhatsAppIcon } from './WhatsAppIcon.tsx';
 import { Package, SiteSettings, ServiceCategoryCard } from '../types.ts';
 import { STARTER_SERVICES } from '../data/starterServices.ts';
 import { trackOutreach } from '../utils/analytics.ts';
@@ -72,15 +73,27 @@ export const ServicesShowcase: React.FC<ServicesShowcaseProps> = ({
                 key={card.id}
                 whileHover={{ y: -4 }}
                 transition={{ duration: 0.2 }}
+                role="button"
+                tabIndex={0}
+                aria-label={`Explore ${card.title} packages`}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleCardClick(card.categoryKey);
+                  }
+                }}
                 onClick={() => handleCardClick(card.categoryKey)}
-                className="group relative h-[230px] sm:h-[400px] rounded-2xl sm:rounded-3xl overflow-hidden cursor-pointer shadow-xs hover:shadow-2xl transition-all duration-300 border bg-black flex flex-col justify-end p-3.5 sm:p-6 border-gray-100 hover:border-[var(--pink)]/50"
+                className="group relative h-[230px] sm:h-[400px] rounded-2xl sm:rounded-3xl overflow-hidden cursor-pointer shadow-xs hover:shadow-2xl transition-all duration-300 border bg-black flex flex-col justify-end p-3.5 sm:p-6 border-gray-100 hover:border-[var(--pink)]/50 focus-visible:ring-2 focus-visible:ring-[var(--pink)] focus-visible:outline-hidden"
               >
                 {/* Background Photo */}
                 <img
                   src={card.image_url}
                   alt={card.title}
-                  className="absolute inset-0 w-full h-full object-cover group-hover:scale-108 transition-transform duration-700 ease-out"
                   loading="lazy"
+                  decoding="async"
+                  width="600"
+                  height="400"
+                  className="absolute inset-0 w-full h-full object-cover group-hover:scale-108 transition-transform duration-700 ease-out"
                 />
 
                 {/* Dark Gradient Overlay */}
@@ -124,7 +137,7 @@ export const ServicesShowcase: React.FC<ServicesShowcaseProps> = ({
                       className="p-1.5 sm:p-2 rounded-full bg-[var(--pink)] hover:bg-[var(--pink-hover)] text-white shadow-xs transition-transform active:scale-90"
                       title={`Order ${card.title} on WhatsApp`}
                     >
-                      <MessageCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5 fill-white/20" />
+                      <WhatsAppIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-xs" />
                     </a>
                   </div>
                 </div>
